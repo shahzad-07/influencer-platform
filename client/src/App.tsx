@@ -5,6 +5,8 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import BrandDashboard from "./pages/BrandDashboard";
 import InfluencerDashboard from "./pages/InfluencerDashboard";
+import InfluencerProfile from "./pages/InfluencerProfile";
+import InfluencerPricing from "./pages/InfluencerPricing";
 
 // "/" sends people to the right place
 function Home() {
@@ -35,6 +37,22 @@ export default function App() {
         element={
           <ProtectedRoute role="INFLUENCER">
             <InfluencerDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/influencer/profile"
+        element={
+          <ProtectedRoute role="INFLUENCER">
+            <InfluencerProfile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/influencer/pricing"
+        element={
+          <ProtectedRoute role="INFLUENCER">
+            <InfluencerPricing />
           </ProtectedRoute>
         }
       />

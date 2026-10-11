@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function InfluencerDashboard() {
@@ -14,7 +14,13 @@ export default function InfluencerDashboard() {
     <div style={{ maxWidth: 800, margin: "40px auto", padding: 16 }}>
       <h1>Influencer Dashboard</h1>
       <p>Welcome, {user?.name}!</p>
-      <p>Soon: your profile, portfolio, pricing, and deals.</p>
+      <p>Soon: your portfolio and deals.</p>
+      <p>
+        <Link to="/influencer/profile">Edit my profile</Link>
+      </p>
+      <p>
+        <Link to="/influencer/pricing">Manage my pricing</Link>
+      </p>
       <button onClick={handleLogout}>Log out</button>
     </div>
   );
