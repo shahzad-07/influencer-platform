@@ -6,6 +6,9 @@ import mongoose from "mongoose";
 const app = express();
 app.use(cors());
 app.use(express.json());
+import authRoutes from "./modules/auth/auth.routes";
+
+app.use("/api/auth", authRoutes);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
