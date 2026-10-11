@@ -7,8 +7,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 import authRoutes from "./modules/auth/auth.routes";
+import profileRoutes from "./modules/profiles/profile.routes";
 
 app.use("/api/auth", authRoutes);
+app.use("/api/profiles", profileRoutes);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
