@@ -5,6 +5,7 @@ import { ConversationModel } from "./conversation.model";
 import { MessageModel } from "./message.model";
 import { UserModel } from "../users/user.model";
 import { authenticate, requireRole } from "../auth/auth.middleware";
+import { emitNewMessage } from "../../socket";
 
 const router = Router();
 
@@ -138,14 +139,17 @@ router.post("/conversations/:id/messages", async (req, res) => {
   conversation.lastMessageAt = new Date();
   await conversation.save();
 
-  res.status(201).json({
-    message: {
-      id: String(message._id),
-      sender: String(message.sender),
-      text: message.text,
-      createdAt: message.createdAt,
-    },
-  });
+  const payload = {
+    id: String(message._id),
+    sender: String(message.sender),
+    text: message.text,
+    createdAt: message.createdAt,
+  };
+
+  // Push to everyone currently in this conversation's room
+  emitNewMessage(String(conversation._id), payload);
+
+  res.status(201).json({ message: payload });
 });
 
 export default router;
