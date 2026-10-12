@@ -10,11 +10,13 @@ import authRoutes from "./modules/auth/auth.routes";
 import profileRoutes from "./modules/profiles/profile.routes";
 import pricingRoutes from "./modules/pricing/pricing.routes";
 import influencerRoutes from "./modules/influencers/influencer.routes";
+import chatRoutes from "./modules/chat/chat.routes";
 
 app.use("/api/auth", authRoutes);
 app.use("/api/profiles", profileRoutes);
 app.use("/api/pricing", pricingRoutes);
 app.use("/api/influencers", influencerRoutes);
+app.use("/api/chat", chatRoutes);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
