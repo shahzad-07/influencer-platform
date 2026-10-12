@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function BrandDashboard() {
@@ -14,7 +14,10 @@ export default function BrandDashboard() {
     <div style={{ maxWidth: 800, margin: "40px auto", padding: 16 }}>
       <h1>Brand Dashboard</h1>
       <p>Welcome, {user?.name}!</p>
-      <p>Soon: browse influencers, chat, and manage your deals.</p>
+      <p>Soon: chat and manage your deals.</p>
+      <p>
+        <Link to="/brand/influencers">Find influencers</Link>
+      </p>
       <button onClick={handleLogout}>Log out</button>
     </div>
   );

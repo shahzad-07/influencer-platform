@@ -7,6 +7,8 @@ import BrandDashboard from "./pages/BrandDashboard";
 import InfluencerDashboard from "./pages/InfluencerDashboard";
 import InfluencerProfile from "./pages/InfluencerProfile";
 import InfluencerPricing from "./pages/InfluencerPricing";
+import BrowseInfluencers from "./pages/BrowseInfluencers";
+import InfluencerDetail from "./pages/InfluencerDetail";
 
 // "/" sends people to the right place
 function Home() {
@@ -53,6 +55,22 @@ export default function App() {
         element={
           <ProtectedRoute role="INFLUENCER">
             <InfluencerPricing />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/brand/influencers"
+        element={
+          <ProtectedRoute role="BRAND">
+            <BrowseInfluencers />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/brand/influencers/:id"
+        element={
+          <ProtectedRoute role="BRAND">
+            <InfluencerDetail />
           </ProtectedRoute>
         }
       />
