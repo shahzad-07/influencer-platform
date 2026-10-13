@@ -1,0 +1,77 @@
+import { Schema, model } from "mongoose";
+import { DEAL_STATUSES } from "./deal.transitions";
+
+// How long an unanswered offer stays open
+export const OFFER_VALID_DAYS = 7;
+
+const historySchema = new Schema(
+  {
+    status: { type: String, enum: DEAL_STATUSES, required: true },
+    by: { type: Schema.Types.ObjectId, ref: "User" }, // empty for SYSTEM actions
+    at: { type: Date, default: Date.now },
+    // Brand's requested changes, dispute reason, "not received" explanation, etc.
+    note: { type: String, trim: true, maxlength: 1000, default: "" },
+  },
+  { _id: false },
+);
+
+const dealSchema = new Schema(
+  {
+    brand: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    influencer: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    conversation: { type: Schema.Types.ObjectId, ref: "Conversation" },
+
+    title: { type: String, required: true, trim: true, maxlength: 120 },
+    brief: { type: String, required: true, trim: true, maxlength: 3000 },
+    deadline: { type: Date },
+
+    // Money in paise (Rs 5,000 = 500000), always whole numbers
+    amount: {
+      type: Number,
+      required: true,
+      min: 1,
+      validate: Number.isInteger,
+    },
+    currency: { type: String, default: "INR" },
+    advancePercent: {
+      type: Number,
+      default: 50,
+      min: 0,
+      max: 100,
+      validate: Number.isInteger,
+    },
+
+    status: {
+      type: String,
+      enum: DEAL_STATUSES,
+      default: "OFFERED",
+      required: true,
+    },
+    statusHistory: { type: [historySchema], default: [] },
+
+    // An offer nobody answers expires (applied later by a scheduled job)
+    expiresAt: {
+      type: Date,
+      default: () =>
+        new Date(Date.now() + OFFER_VALID_DAYS * 24 * 60 * 60 * 1000),
+    },
+
+    postUrl: { type: String, trim: true, maxlength: 300, default: "" },
+    draftUrl: { type: String, trim: true, maxlength: 300, default: "" },
+  },
+  { timestamps: true },
+);
+
+// Fast "my deals" lookups
+dealSchema.index({ brand: 1, updatedAt: -1 });
+dealSchema.index({ influencer: 1, updatedAt: -1 });
+// Lets the future expiry job find old offers quickly
+dealSchema.index({ status: 1, expiresAt: 1 });
+
+export const DealModel = model("Deal", dealSchema);
+
+// Splits the total into advance + final. Whole paise only, so the two always add up.
+export function splitPayment(amount: number, advancePercent: number) {
+  const advance = Math.round((amount * advancePercent) / 100);
+  return { advance, final: amount - advance };
+}
