@@ -16,6 +16,9 @@ export default function BrandDashboard() {
       <p>Welcome, {user?.name}!</p>
       <p>Soon: manage your deals.</p>
       <p>
+        <Link to="/brand/profile">Edit my brand profile</Link>
+      </p>
+      <p>
         <Link to="/brand/influencers">Find influencers</Link>
       </p>
       <p>

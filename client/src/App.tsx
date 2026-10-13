@@ -10,6 +10,9 @@ import InfluencerPricing from "./pages/InfluencerPricing";
 import BrowseInfluencers from "./pages/BrowseInfluencers";
 import InfluencerDetail from "./pages/InfluencerDetail";
 import Messages from "./pages/Messages";
+import BrandProfile from "./pages/BrandProfile";
+import BrowseBrands from "./pages/BrowseBrands";
+import BrandDetail from "./pages/BrandDetail";
 
 // "/" sends people to the right place
 function Home() {
@@ -88,6 +91,30 @@ export default function App() {
         element={
           <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
             <Messages />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/brand/profile"
+        element={
+          <ProtectedRoute role="BRAND">
+            <BrandProfile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/influencer/brands"
+        element={
+          <ProtectedRoute role="INFLUENCER">
+            <BrowseBrands />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/influencer/brands/:id"
+        element={
+          <ProtectedRoute role="INFLUENCER">
+            <BrandDetail />
           </ProtectedRoute>
         }
       />
