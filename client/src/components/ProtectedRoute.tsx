@@ -7,10 +7,11 @@ export default function ProtectedRoute({
   role,
   children,
 }: {
-  role: Role;
+  role: Role | Role[];
   children: ReactNode;
 }) {
   const { user, loading } = useAuth();
+  const allowedRoles = Array.isArray(role) ? role : [role];
 
   // Still checking the saved token with the server
   if (loading) return <p style={{ padding: 16 }}>Loading...</p>;
@@ -19,7 +20,7 @@ export default function ProtectedRoute({
   if (!user) return <Navigate to="/login" replace />;
 
   // Logged in, but wrong role: send them to their own dashboard
-  if (user.role !== role) {
+  if (!allowedRoles.includes(user.role)) {
     return (
       <Navigate to={user.role === "BRAND" ? "/brand" : "/influencer"} replace />
     );

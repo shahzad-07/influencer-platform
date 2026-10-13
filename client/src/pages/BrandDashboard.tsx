@@ -14,9 +14,12 @@ export default function BrandDashboard() {
     <div style={{ maxWidth: 800, margin: "40px auto", padding: 16 }}>
       <h1>Brand Dashboard</h1>
       <p>Welcome, {user?.name}!</p>
-      <p>Soon: chat and manage your deals.</p>
+      <p>Soon: manage your deals.</p>
       <p>
         <Link to="/brand/influencers">Find influencers</Link>
+      </p>
+      <p>
+        <Link to="/messages">Messages</Link>
       </p>
       <button onClick={handleLogout}>Log out</button>
     </div>

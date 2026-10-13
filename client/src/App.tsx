@@ -9,6 +9,7 @@ import InfluencerProfile from "./pages/InfluencerProfile";
 import InfluencerPricing from "./pages/InfluencerPricing";
 import BrowseInfluencers from "./pages/BrowseInfluencers";
 import InfluencerDetail from "./pages/InfluencerDetail";
+import Messages from "./pages/Messages";
 
 // "/" sends people to the right place
 function Home() {
@@ -71,6 +72,22 @@ export default function App() {
         element={
           <ProtectedRoute role="BRAND">
             <InfluencerDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
+            <Messages />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages/:conversationId"
+        element={
+          <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
+            <Messages />
           </ProtectedRoute>
         }
       />

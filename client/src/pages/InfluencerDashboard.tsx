@@ -21,6 +21,9 @@ export default function InfluencerDashboard() {
       <p>
         <Link to="/influencer/pricing">Manage my pricing</Link>
       </p>
+      <p>
+        <Link to="/messages">Messages</Link>
+      </p>
       <button onClick={handleLogout}>Log out</button>
     </div>
   );

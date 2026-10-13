@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 
 interface SocialLink {
@@ -32,6 +32,8 @@ const isSafeUrl = (url: string) => /^https?:\/\//i.test(url);
 
 export default function InfluencerDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [contacting, setContacting] = useState(false);
 
   const [influencer, setInfluencer] = useState<Influencer | null>(null);
   const [prices, setPrices] = useState<Price[]>([]);
@@ -67,6 +69,24 @@ export default function InfluencerDetail() {
       cancelled = true;
     };
   }, [id]);
+
+  async function handleContact() {
+    if (!id) return;
+    setContacting(true);
+    setError("");
+    try {
+      const res = await api<{ conversationId: string }>("/chat/conversations", {
+        method: "POST",
+        body: JSON.stringify({ influencerId: id }),
+      });
+      navigate(`/messages/${res.conversationId}`);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not start conversation",
+      );
+      setContacting(false);
+    }
+  }
 
   return (
     <div style={{ maxWidth: 700, margin: "40px auto", padding: 16 }}>
@@ -143,8 +163,8 @@ export default function InfluencerDetail() {
             </ul>
           )}
 
-          <button disabled title="Chat is coming in a later step">
-            Contact (coming soon)
+          <button onClick={handleContact} disabled={contacting}>
+            {contacting ? "Opening chat..." : "Contact"}
           </button>
         </>
       )}

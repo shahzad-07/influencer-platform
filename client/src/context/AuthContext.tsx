@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { api, setToken, clearToken, getToken } from "../lib/api";
+import { disconnectSocket } from "../lib/socket";
 
 export type Role = "BRAND" | "INFLUENCER";
 
@@ -77,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    disconnectSocket();
     clearToken();
     setUser(null);
   }
