@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ConversationModel } from "./conversation.model";
 import { MessageModel } from "./message.model";
 import { UserModel } from "../users/user.model";
-import { authenticate, requireRole } from "../auth/auth.middleware";
+import { authenticate } from "../auth/auth.middleware";
 import { emitNewMessage } from "../../socket";
 
 const router = Router();
@@ -21,30 +21,55 @@ async function findMyConversation(conversationId: string, userId: string) {
   });
 }
 
-// BRAND: start a conversation (or get the existing one)
-router.post("/conversations", requireRole("BRAND"), async (req, res) => {
-  const parsed = z
-    .object({
-      influencerId: z
-        .string()
-        .refine((v) => mongoose.isValidObjectId(v), "Invalid id"),
-    })
-    .safeParse(req.body);
+const objectId = z
+  .string()
+  .refine((v) => mongoose.isValidObjectId(v), "Invalid id");
+
+const startSchema = z.object({
+  influencerId: objectId.optional(), // sent by a brand
+  brandId: objectId.optional(), // sent by an influencer
+});
+
+// EITHER ROLE: start a conversation (or get the existing one)
+router.post("/conversations", async (req, res) => {
+  const parsed = startSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
   }
-  const { influencerId } = parsed.data;
 
-  const isInfluencer = await UserModel.exists({
-    _id: influencerId,
-    role: "INFLUENCER",
+  const { userId, role } = req.user!;
+  let brandId: string;
+  let influencerId: string;
+
+  if (role === "BRAND") {
+    if (!parsed.data.influencerId) {
+      return res.status(400).json({ message: "influencerId is required" });
+    }
+    brandId = userId;
+    influencerId = parsed.data.influencerId;
+  } else {
+    if (!parsed.data.brandId) {
+      return res.status(400).json({ message: "brandId is required" });
+    }
+    brandId = parsed.data.brandId;
+    influencerId = userId;
+  }
+
+  // The other person must exist and have the opposite role
+  const targetId = role === "BRAND" ? influencerId : brandId;
+  const targetRole = role === "BRAND" ? "INFLUENCER" : "BRAND";
+  const targetExists = await UserModel.exists({
+    _id: targetId,
+    role: targetRole,
   });
-  if (!isInfluencer) {
-    return res.status(404).json({ message: "Influencer not found" });
+  if (!targetExists) {
+    return res.status(404).json({
+      message: role === "BRAND" ? "Influencer not found" : "Brand not found",
+    });
   }
 
   const conversation = await ConversationModel.findOneAndUpdate(
-    { brand: req.user!.userId, influencer: influencerId },
+    { brand: brandId, influencer: influencerId },
     { $setOnInsert: { lastMessageText: "" } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
