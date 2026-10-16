@@ -79,6 +79,7 @@ router.get("/:id", authenticate, requireRole("BRAND"), async (req, res) => {
       niches: profile.niches,
       location: profile.location,
       socialLinks: profile.socialLinks,
+      portfolio: profile.portfolio ?? [],
     },
   });
 });
