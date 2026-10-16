@@ -12,10 +12,22 @@ const PLATFORMS = [
 ] as const;
 type Platform = (typeof PLATFORMS)[number];
 
+const PORTFOLIO_PLATFORMS = [...PLATFORMS, "OTHER"] as const;
+type PortfolioPlatform = (typeof PORTFOLIO_PLATFORMS)[number];
+
+const MAX_PORTFOLIO = 12;
+
 interface SocialLink {
   platform: Platform;
   url: string;
   followers: number;
+}
+
+interface PortfolioItem {
+  title: string;
+  platform: PortfolioPlatform;
+  url: string;
+  summary: string;
 }
 
 interface Profile {
@@ -23,6 +35,7 @@ interface Profile {
   niches: string[];
   location: string;
   socialLinks: SocialLink[];
+  portfolio?: PortfolioItem[]; // older profiles may not have it
 }
 
 export default function InfluencerProfile() {
@@ -30,6 +43,7 @@ export default function InfluencerProfile() {
   const [location, setLocation] = useState("");
   const [nichesText, setNichesText] = useState(""); // "tech, lifestyle"
   const [links, setLinks] = useState<SocialLink[]>([]);
+  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,6 +59,12 @@ export default function InfluencerProfile() {
           setLocation(profile.location);
           setNichesText(profile.niches.join(", "));
           setLinks(profile.socialLinks);
+          setPortfolio(
+            (profile.portfolio ?? []).map((p) => ({
+              ...p,
+              summary: p.summary ?? "",
+            })),
+          );
         }
       })
       .catch((err) =>
@@ -53,6 +73,7 @@ export default function InfluencerProfile() {
       .finally(() => setLoading(false));
   }, []);
 
+  // ----- social links -----
   function updateLink(index: number, changes: Partial<SocialLink>) {
     setLinks(links.map((l, i) => (i === index ? { ...l, ...changes } : l)));
   }
@@ -64,6 +85,25 @@ export default function InfluencerProfile() {
 
   function removeLink(index: number) {
     setLinks(links.filter((_, i) => i !== index));
+  }
+
+  // ----- portfolio -----
+  function updateItem(index: number, changes: Partial<PortfolioItem>) {
+    setPortfolio(
+      portfolio.map((p, i) => (i === index ? { ...p, ...changes } : p)),
+    );
+  }
+
+  function addItem() {
+    if (portfolio.length >= MAX_PORTFOLIO) return;
+    setPortfolio([
+      ...portfolio,
+      { title: "", platform: "INSTAGRAM", url: "", summary: "" },
+    ]);
+  }
+
+  function removeItem(index: number) {
+    setPortfolio(portfolio.filter((_, i) => i !== index));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -79,7 +119,13 @@ export default function InfluencerProfile() {
 
       await api("/profiles/me", {
         method: "PUT",
-        body: JSON.stringify({ bio, location, niches, socialLinks: links }),
+        body: JSON.stringify({
+          bio,
+          location,
+          niches,
+          socialLinks: links,
+          portfolio,
+        }),
       });
       setMessage("Profile saved!");
     } catch (err) {
@@ -178,6 +224,83 @@ export default function InfluencerProfile() {
             <button type="button" onClick={addLink}>
               + Add link
             </button>
+          )}
+        </div>
+
+        <div>
+          <strong>
+            Portfolio ({portfolio.length}/{MAX_PORTFOLIO})
+          </strong>
+          <p style={{ color: "gray", margin: "4px 0 8px" }}>
+            Show brands your past work. Add a link to each piece (no uploads
+            needed).
+          </p>
+
+          {portfolio.map((item, i) => (
+            <div
+              key={i}
+              style={{
+                border: "1px solid #ccc",
+                borderRadius: 8,
+                padding: 8,
+                margin: "8px 0",
+                display: "grid",
+                gap: 8,
+              }}
+            >
+              <input
+                placeholder="Title (e.g. Cafe launch reel)"
+                value={item.title}
+                onChange={(e) => updateItem(i, { title: e.target.value })}
+                maxLength={100}
+                required
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <select
+                  value={item.platform}
+                  onChange={(e) =>
+                    updateItem(i, {
+                      platform: e.target.value as PortfolioPlatform,
+                    })
+                  }
+                >
+                  {PORTFOLIO_PLATFORMS.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={item.url}
+                  onChange={(e) => updateItem(i, { url: e.target.value })}
+                  maxLength={300}
+                  required
+                  style={{ flex: 1 }}
+                />
+              </div>
+              <textarea
+                placeholder="Short summary (optional): what it was, results, views..."
+                value={item.summary}
+                onChange={(e) => updateItem(i, { summary: e.target.value })}
+                maxLength={300}
+                rows={2}
+              />
+              <button type="button" onClick={() => removeItem(i)}>
+                Remove this item
+              </button>
+            </div>
+          ))}
+
+          {portfolio.length < MAX_PORTFOLIO ? (
+            <button type="button" onClick={addItem}>
+              + Add portfolio item
+            </button>
+          ) : (
+            <p style={{ color: "gray" }}>
+              You've reached the limit of {MAX_PORTFOLIO} items.
+            </p>
           )}
         </div>
 

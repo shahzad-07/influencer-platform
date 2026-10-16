@@ -8,6 +8,13 @@ interface SocialLink {
   followers: number;
 }
 
+interface PortfolioItem {
+  title: string;
+  platform: string;
+  url: string;
+  summary?: string;
+}
+
 interface Influencer {
   id: string;
   name: string;
@@ -15,6 +22,7 @@ interface Influencer {
   niches: string[];
   location: string;
   socialLinks: SocialLink[];
+  portfolio?: PortfolioItem[]; // older profiles may not have it
 }
 
 interface Price {
@@ -33,11 +41,11 @@ const isSafeUrl = (url: string) => /^https?:\/\//i.test(url);
 export default function InfluencerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [contacting, setContacting] = useState(false);
 
   const [influencer, setInfluencer] = useState<Influencer | null>(null);
   const [prices, setPrices] = useState<Price[]>([]);
   const [loading, setLoading] = useState(true);
+  const [contacting, setContacting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -87,6 +95,8 @@ export default function InfluencerDetail() {
       setContacting(false);
     }
   }
+
+  const portfolio = influencer?.portfolio ?? [];
 
   return (
     <div style={{ maxWidth: 700, margin: "40px auto", padding: 16 }}>
@@ -144,6 +154,55 @@ export default function InfluencerDetail() {
                 </li>
               ))}
             </ul>
+          )}
+
+          <h2>Past work</h2>
+          {portfolio.length === 0 ? (
+            <p>No portfolio items yet.</p>
+          ) : (
+            <div style={{ display: "grid", gap: 12 }}>
+              {portfolio.map((item, i) => (
+                <div
+                  key={i}
+                  style={{
+                    border: "1px solid #ccc",
+                    borderRadius: 8,
+                    padding: 12,
+                  }}
+                >
+                  <div
+                    style={{ display: "flex", gap: 8, alignItems: "center" }}
+                  >
+                    <strong>{item.title}</strong>
+                    <span
+                      style={{
+                        background: "#eee",
+                        color: "#333",
+                        borderRadius: 12,
+                        padding: "2px 8px",
+                        fontSize: 12,
+                      }}
+                    >
+                      {item.platform}
+                    </span>
+                  </div>
+                  {item.summary && (
+                    <p style={{ margin: "8px 0" }}>{item.summary}</p>
+                  )}
+                  {isSafeUrl(item.url) ? (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View work →
+                    </a>
+                  ) : (
+                    <span style={{ color: "gray" }}>{item.url}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
 
           <h2>Pricing</h2>
