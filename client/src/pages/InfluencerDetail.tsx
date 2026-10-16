@@ -222,9 +222,12 @@ export default function InfluencerDetail() {
             </ul>
           )}
 
-          <button onClick={handleContact} disabled={contacting}>
-            {contacting ? "Opening chat..." : "Contact"}
-          </button>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <button onClick={handleContact} disabled={contacting}>
+              {contacting ? "Opening chat..." : "Contact"}
+            </button>
+            <Link to={`/brand/offers/new/${influencer.id}`}>Make an offer</Link>
+          </div>
         </>
       )}
     </div>

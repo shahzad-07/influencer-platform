@@ -14,12 +14,17 @@ export default function InfluencerDashboard() {
     <div style={{ maxWidth: 800, margin: "40px auto", padding: 16 }}>
       <h1>Influencer Dashboard</h1>
       <p>Welcome, {user?.name}!</p>
-      <p>Soon: your portfolio and deals.</p>
       <p>
         <Link to="/influencer/profile">Edit my profile</Link>
       </p>
       <p>
         <Link to="/influencer/pricing">Manage my pricing</Link>
+      </p>
+      <p>
+        <Link to="/influencer/payment-details">Payment details</Link>
+      </p>
+      <p>
+        <Link to="/deals">My deals</Link>
       </p>
       <p>
         <Link to="/influencer/brands">Find brands</Link>

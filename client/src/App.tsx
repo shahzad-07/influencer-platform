@@ -13,6 +13,10 @@ import Messages from "./pages/Messages";
 import BrandProfile from "./pages/BrandProfile";
 import BrowseBrands from "./pages/BrowseBrands";
 import BrandDetail from "./pages/BrandDetail";
+import PaymentDetails from "./pages/PaymentDetails";
+import CreateOffer from "./pages/CreateOffer";
+import Deals from "./pages/Deals";
+import DealDetail from "./pages/DealDetail";
 
 // "/" sends people to the right place
 function Home() {
@@ -59,6 +63,14 @@ export default function App() {
         element={
           <ProtectedRoute role="INFLUENCER">
             <InfluencerPricing />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/influencer/payment-details"
+        element={
+          <ProtectedRoute role="INFLUENCER">
+            <PaymentDetails />
           </ProtectedRoute>
         }
       />
@@ -115,6 +127,30 @@ export default function App() {
         element={
           <ProtectedRoute role="INFLUENCER">
             <BrandDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/brand/offers/new/:influencerId"
+        element={
+          <ProtectedRoute role="BRAND">
+            <CreateOffer />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/deals"
+        element={
+          <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
+            <Deals />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/deals/:id"
+        element={
+          <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
+            <DealDetail />
           </ProtectedRoute>
         }
       />
