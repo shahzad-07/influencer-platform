@@ -40,12 +40,19 @@ async function login({ email, password }) {
   return data.token;
 }
 
-const act = (token, dealId, action, extra = {}) =>
-  api(`/deals/${dealId}/actions`, {
+let refCounter = 0;
+const act = (token, dealId, action, extra = {}) => {
+  const needsRef = action === "markAdvanceSent" || action === "markFinalSent";
+  const withRef =
+    needsRef && !extra.reference
+      ? { ...extra, reference: `TESTREF${Date.now()}${refCounter++}` }
+      : extra;
+  return api(`/deals/${dealId}/actions`, {
     method: "POST",
     token,
-    body: { action, ...extra },
+    body: { action, ...withRef },
   });
+};
 
 async function expectOk(
   name,

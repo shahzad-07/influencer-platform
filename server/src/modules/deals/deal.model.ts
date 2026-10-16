@@ -4,6 +4,9 @@ import { DEAL_STATUSES } from "./deal.transitions";
 // How long an unanswered offer stays open
 export const OFFER_VALID_DAYS = 7;
 
+// How many times a payment can be claimed for one stage (advance or final)
+export const MAX_PAYMENT_ATTEMPTS = 5;
+
 const historySchema = new Schema(
   {
     status: { type: String, enum: DEAL_STATUSES, required: true },
@@ -11,6 +14,30 @@ const historySchema = new Schema(
     at: { type: Date, default: Date.now },
     // Brand's requested changes, dispute reason, "not received" explanation, etc.
     note: { type: String, trim: true, maxlength: 1000, default: "" },
+  },
+  { _id: false },
+);
+
+// One claimed payment. The brand sends it, the influencer confirms or rejects it.
+const paymentSchema = new Schema(
+  {
+    stage: { type: String, enum: ["ADVANCE", "FINAL"], required: true },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0,
+      validate: Number.isInteger,
+    }, // paise
+    reference: { type: String, required: true, trim: true, maxlength: 30 },
+    sentAt: { type: Date, default: Date.now },
+    sentBy: { type: Schema.Types.ObjectId, ref: "User" },
+    status: {
+      type: String,
+      enum: ["SENT", "CONFIRMED", "REJECTED"],
+      default: "SENT",
+    },
+    resolvedAt: { type: Date },
+    note: { type: String, trim: true, maxlength: 500, default: "" }, // e.g. "only half arrived"
   },
   { _id: false },
 );
@@ -49,6 +76,9 @@ const dealSchema = new Schema(
     },
     statusHistory: { type: [historySchema], default: [] },
 
+    // Every claimed payment, in order (bounded by MAX_PAYMENT_ATTEMPTS per stage)
+    payments: { type: [paymentSchema], default: [] },
+
     // An offer nobody answers expires (applied later by a scheduled job)
     expiresAt: {
       type: Date,
@@ -56,8 +86,8 @@ const dealSchema = new Schema(
         new Date(Date.now() + OFFER_VALID_DAYS * 24 * 60 * 60 * 1000),
     },
 
-    postUrl: { type: String, trim: true, maxlength: 300, default: "" },
     draftUrl: { type: String, trim: true, maxlength: 300, default: "" },
+    postUrl: { type: String, trim: true, maxlength: 300, default: "" },
   },
   { timestamps: true },
 );

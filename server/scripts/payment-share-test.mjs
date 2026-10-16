@@ -111,12 +111,19 @@ async function main() {
     dealIds.push(r.data.dealId);
     return r.data.dealId;
   };
-  const act = (token, dealId, action, extra = {}) =>
-    api(`/deals/${dealId}/actions`, {
+  let refCounter = 0;
+  const act = (token, dealId, action, extra = {}) => {
+    const needsRef = action === "markAdvanceSent" || action === "markFinalSent";
+    const withRef =
+      needsRef && !extra.reference
+        ? { ...extra, reference: `TESTREF${Date.now()}${refCounter++}` }
+        : extra;
+    return api(`/deals/${dealId}/actions`, {
       method: "POST",
       token,
-      body: { action, ...extra },
+      body: { action, ...withRef },
     });
+  };
   const share = (dealId, stage, token = infT) =>
     api("/payment-shares", { method: "POST", token, body: { dealId, stage } });
   const view = (dealId, stage, token = brandT) =>

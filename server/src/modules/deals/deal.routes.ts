@@ -1,7 +1,7 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import { z } from "zod";
-import { DealModel, splitPayment } from "./deal.model";
+import { DealModel, splitPayment, MAX_PAYMENT_ATTEMPTS } from "./deal.model";
 import { DEAL_ACTIONS, nextStatus, isNoteRequired } from "./deal.transitions";
 import type { Actor, DealAction, DealStatus } from "./deal.transitions";
 import { UserModel } from "../users/user.model";
@@ -14,6 +14,21 @@ const router = Router();
 router.use(authenticate);
 
 type PopUser = { _id: mongoose.Types.ObjectId; name: string };
+type PayStage = "ADVANCE" | "FINAL";
+
+// Which actions claim a payment, and which settle one
+const SENT_STAGE: Partial<Record<DealAction, PayStage>> = {
+  markAdvanceSent: "ADVANCE",
+  markFinalSent: "FINAL",
+};
+const RESOLVE: Partial<
+  Record<DealAction, { stage: PayStage; result: "CONFIRMED" | "REJECTED" }>
+> = {
+  confirmAdvance: { stage: "ADVANCE", result: "CONFIRMED" },
+  rejectAdvance: { stage: "ADVANCE", result: "REJECTED" },
+  confirmFinal: { stage: "FINAL", result: "CONFIRMED" },
+  rejectFinal: { stage: "FINAL", result: "REJECTED" },
+};
 
 const httpUrl = z
   .string()
@@ -31,7 +46,8 @@ const createSchema = z.object({
   title: z.string().trim().min(3).max(120),
   brief: z.string().trim().min(10).max(3000),
   amount: z.number().int().min(100), // in paise, so at least Rs 1
-  advancePercent: z.number().int().min(0).max(100).default(50),
+  // 1 to 99, so both the advance and the final payment are real amounts
+  advancePercent: z.number().int().min(1).max(99).default(50),
   deadline: z.coerce
     .date()
     .refine((d) => d.getTime() > Date.now(), "Deadline must be in the future")
@@ -42,6 +58,14 @@ const actionSchema = z.object({
   action: z.enum(DEAL_ACTIONS),
   note: z.string().trim().max(1000).optional(),
   url: httpUrl.optional(),
+  reference: z
+    .string()
+    .trim()
+    .regex(
+      /^[A-Za-z0-9-]{6,30}$/,
+      "Reference must be 6 to 30 letters, digits or dashes",
+    )
+    .optional(),
 });
 
 function allowedActionsFor(status: DealStatus, actor: Actor): DealAction[] {
@@ -144,6 +168,7 @@ router.get("/:id", async (req, res) => {
 
   const actor: Actor =
     String(deal.brand._id) === userId ? "BRAND" : "INFLUENCER";
+  const payments = deal.payments ?? [];
 
   res.json({
     deal: {
@@ -155,6 +180,19 @@ router.get("/:id", async (req, res) => {
       currency: deal.currency,
       advancePercent: deal.advancePercent,
       payments: splitPayment(deal.amount, deal.advancePercent),
+      paymentRecords: payments.map((p) => ({
+        stage: p.stage,
+        amount: p.amount,
+        reference: p.reference,
+        status: p.status,
+        sentAt: p.sentAt,
+        resolvedAt: p.resolvedAt ?? null,
+        note: p.note,
+      })),
+      // Only money the influencer has confirmed counts as paid
+      paidTotal: payments
+        .filter((p) => p.status === "CONFIRMED")
+        .reduce((sum, p) => sum + p.amount, 0),
       status: deal.status,
       expiresAt: deal.expiresAt,
       draftUrl: deal.draftUrl,
@@ -183,7 +221,7 @@ router.post("/:id/actions", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
   }
-  const { action, note = "", url } = parsed.data;
+  const { action, note = "", url, reference } = parsed.data;
   const { userId } = req.user!;
 
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -224,6 +262,10 @@ router.post("/:id/actions", async (req, res) => {
   }
 
   const set: Record<string, unknown> = { status: next };
+  const push: Record<string, unknown> = {
+    statusHistory: { status: next, by: userId, at: new Date(), note },
+  };
+
   if (action === "submitDraft") {
     if (!url)
       return res.status(400).json({ message: "A draft link is required" });
@@ -235,16 +277,72 @@ router.post("/:id/actions", async (req, res) => {
     set.postUrl = url;
   }
 
+  // Claiming a payment: record it. The amount comes from the deal, never from the request.
+  const sentStage = SENT_STAGE[action];
+  if (sentStage) {
+    if (!reference) {
+      return res
+        .status(400)
+        .json({ message: "The payment reference (UTR) is required" });
+    }
+    const payments = deal.payments ?? [];
+
+    if (
+      payments.some(
+        (p) => p.reference.toLowerCase() === reference.toLowerCase(),
+      )
+    ) {
+      return res
+        .status(409)
+        .json({ message: "That reference was already used on this deal" });
+    }
+    if (
+      payments.filter((p) => p.stage === sentStage).length >=
+      MAX_PAYMENT_ATTEMPTS
+    ) {
+      return res.status(409).json({
+        message:
+          "Too many payment attempts for this stage. Please cancel the deal or contact support.",
+      });
+    }
+
+    const { advance, final } = splitPayment(deal.amount, deal.advancePercent);
+    const amount = sentStage === "ADVANCE" ? advance : final;
+    if (amount <= 0) {
+      return res
+        .status(409)
+        .json({ message: "No payment is due for this stage" });
+    }
+
+    push.payments = {
+      stage: sentStage,
+      amount,
+      reference,
+      sentAt: new Date(),
+      sentBy: userId,
+      status: "SENT",
+    };
+  }
+
+  // Settling a payment: the influencer confirms or rejects the one that is waiting
+  const resolve = RESOLVE[action];
+  if (resolve) {
+    set["payments.$[p].status"] = resolve.result;
+    set["payments.$[p].resolvedAt"] = new Date();
+    if (note) set["payments.$[p].note"] = note;
+  }
+
   // Compare-and-set: only applies if the status is still what we read
+  const update: Record<string, unknown> = { $set: set, $push: push };
   const updated = await DealModel.findOneAndUpdate(
     { _id: deal._id, status: current },
+    update,
     {
-      $set: set,
-      $push: {
-        statusHistory: { status: next, by: userId, at: new Date(), note },
-      },
+      new: true,
+      ...(resolve
+        ? { arrayFilters: [{ "p.stage": resolve.stage, "p.status": "SENT" }] }
+        : {}),
     },
-    { new: true },
   );
   if (!updated) {
     return res.status(409).json({
