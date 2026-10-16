@@ -11,6 +11,8 @@ import chatRoutes from "./modules/chat/chat.routes";
 import { initSocket } from "./socket";
 import brandRoutes from "./modules/brands/brand.routes";
 import dealRoutes from "./modules/deals/deal.routes";
+import paymentDetailsRoutes from "./modules/payments/payment-details.routes";
+import paymentShareRoutes from "./modules/payments/payment-share.routes";
 
 const app = express();
 app.use(cors());
@@ -27,6 +29,8 @@ app.use("/api/influencers", influencerRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/brands", brandRoutes);
 app.use("/api/deals", dealRoutes);
+app.use("/api/payment-details", paymentDetailsRoutes);
+app.use("/api/payment-shares", paymentShareRoutes);
 
 // Socket.io needs the raw HTTP server, not just the Express app
 const httpServer = http.createServer(app);
