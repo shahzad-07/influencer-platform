@@ -1,8 +1,10 @@
 import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
-import { getToken } from "./api";
+import { API_URL, getToken } from "./api";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? "http://localhost:5000";
+// The chat server is the same host as the API, without the /api part,
+// so there is only one address to set (VITE_API_URL)
+const SOCKET_URL = new URL(API_URL, window.location.href).origin;
 
 let socket: Socket | null = null;
 

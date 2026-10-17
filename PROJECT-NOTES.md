@@ -53,14 +53,14 @@ Decision: Render for both the server (Web Service) and the client (Static Site).
 
 1. Pre-deploy cleanup: test scripts read the influencer login from environment variables only. DONE.
 2. Server ready for production: `build` and `start` scripts in `server/package.json`, and check how CORS, Socket.io and `TRUST_PROXY=1` use `CLIENT_URL`. - Done
-3. Client ready: `VITE_API_URL`, and a rewrite rule that sends every page URL to `index.html` (otherwise refreshing `/deals` gives a 404).
+3. Client ready: DONE for the code. There is now one setting, `VITE_API_URL` (the server address ending in `/api`, no trailing slash). The chat address is worked out from it, and `VITE_SOCKET_URL` no longer exists. It is baked in when the client is built, so set it on the host before building. Still to do in piece 5: the rewrite rule on Render that sends every page URL to `index.html` (otherwise refreshing `/deals` gives a 404).
 4. A separate production database: a new Atlas project with its own free cluster and its own database user. Never share anything with the dev database.
 5. Deploy the server, then the client, then set `CLIENT_URL` and `VITE_API_URL` to the real URLs.
 6. Smoke test on the live site: sign up, make an offer, run a barter deal, check chat.
 
 Things to remember:
 
-- Environment variables: `PORT`, `MONGODB_URI`, `JWT_SECRET`, `PAYMENT_ENCRYPTION_KEY`, `CLIENT_URL`, plus `TRUST_PROXY=1` on the server and `VITE_API_URL` on the client. Use new production values for the secrets, not the dev ones.
+- Environment variables: `PORT`, `MONGODB_URI`, `JWT_SECRET`, `PAYMENT_ENCRYPTION_KEY`, `CLIENT_URL`, plus `TRUST_PROXY=1` on the server and `VITE_API_URL` (the only client setting) on the client. Use new production values for the secrets, not the dev ones.
 - CORS and Socket.io must allow only the real client URL.
 - A free Render web service spins down after 15 minutes without traffic and takes about a minute to wake. Fine for testing, not for real users (a paid always-on server removes this).
 - Atlas Network Access: a free Render service has no fixed outgoing IP, so the production cluster will probably need to allow access from anywhere (`0.0.0.0/0`), protected by a strong database password. A trade-off to accept knowingly.
@@ -135,6 +135,7 @@ How to use this log:
 - 2026-10-17: Terms page (`Terms.tsx`), public `/terms` route in `App.tsx`, and the required "I agree to the Terms" checkbox in `Signup.tsx`. Step 4 is finished. Still to do: fill in the business name, email and city at the top of `Terms.tsx`, and get the text reviewed by a lawyer.
 - 2026-10-17: Step 5 started (deploy on Render, both server and client). Piece 1 done: new `server/scripts/test-env.mjs`, and 8 test scripts (`deals`, `collab`, `language`, `payment-details`, `payment-records`, `payment-share`, `portfolio`, `socket`) now read the influencer login from `INFLUENCER_EMAIL` / `INFLUENCER_PASSWORD` only, with no defaults. After you pull, set the two variables (see "Test scripts"), and use your own made-up test account. Next: piece 2, the server build/start scripts and CORS check.
 - 2026-10-17: Step 5 piece 2 done. `server/src/index.ts` now checks its settings at startup (stops with a clear message if `MONGODB_URI`, `JWT_SECRET` or `PAYMENT_ENCRYPTION_KEY` is missing or malformed) and allows browser calls only from `CLIENT_URL` (no trailing slash; defaults to `http://localhost:5173`, so if your Vite runs on another port, set `CLIENT_URL` in `server/.env`). `server/package.json` has new `build` (esbuild bundle into `dist/`) and `start` scripts, and `esbuild` as a dev dependency. After you pull, run `npm install` in `server/`. Daily work is still `npm run dev`. Next: piece 3, the client.
+- 2026-10-17: Step 5 piece 3 done. `client/src/lib/api.ts` exports `API_URL` (trailing slash removed, console error in a live build if `VITE_API_URL` is missing). `client/src/lib/socket.ts` now derives the chat address from `API_URL`, so `VITE_SOCKET_URL` is gone. Nothing changes for local work. Next: piece 4, the separate production database on Atlas.
 
 ### Friend's entries
 
