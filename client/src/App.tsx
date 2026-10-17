@@ -3,6 +3,7 @@ import { useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Terms from "./pages/Terms";
 import BrandDashboard from "./pages/BrandDashboard";
 import InfluencerDashboard from "./pages/InfluencerDashboard";
 import InfluencerProfile from "./pages/InfluencerProfile";
@@ -34,6 +35,8 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      {/* Public: anyone can read the terms, no login needed */}
+      <Route path="/terms" element={<Terms />} />
       <Route
         path="/brand"
         element={

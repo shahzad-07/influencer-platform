@@ -12,12 +12,20 @@ export default function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+
+    // The browser also blocks this through the "required" checkbox
+    if (!agreed) {
+      setError("Please agree to the Terms to create an account.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const user = await register({ name, email, password, role });
@@ -77,6 +85,22 @@ export default function Signup() {
           required
           minLength={8}
         />
+
+        <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            required
+            style={{ marginTop: 3 }}
+          />
+          <span>
+            I agree to the{" "}
+            <Link to="/terms" target="_blank" rel="noopener noreferrer">
+              Terms
+            </Link>
+          </span>
+        </label>
 
         {error && <p style={{ color: "crimson", margin: 0 }}>{error}</p>}
 

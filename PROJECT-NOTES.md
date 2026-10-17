@@ -47,6 +47,8 @@ Last updated: 2026-10-17. Repo: github.com/shahzad-07/influencer-platform (publi
 
 ## In progress: step 4 (Terms page + rate limiting)
 
+## it’s done (move it into the “Done” list).
+
 Rate limiting is done and tested. Three client files are left:
 
 1. `client/src/pages/Terms.tsx` (new). A public page in plain language, built from how the platform really works: marketplace only, payments happen outside the app and the app only records them, payment details stored encrypted and shared for 6 hours with every view logged, barter deals, offers expire after 7 days, disputes freeze a deal, account and conduct rules, endorsement disclosure, limits of liability, governing law of India, contact. Put the business name, contact email, city and last-updated date in one block at the top of the file. Mark it as a draft. A lawyer must review it before launch.
@@ -115,3 +117,7 @@ How to use this log:
 ### Friend's entries
 
 - (add your first entry here)
+
+### Shahzad's entries
+
+- 2026-10-17: Terms page (Terms.tsx), public /terms route in App.tsx, and the required "I agree to the Terms" checkbox in Signup.tsx. Step 4 is finished. Still to do: fill in the business name, email and city at the top of Terms.tsx, and get the text reviewed by a lawyer. Next: step 5, free-tier deploy.
