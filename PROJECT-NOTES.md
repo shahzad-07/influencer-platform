@@ -97,3 +97,21 @@ Run in `server/`, with the server running (`npm run dev`):
 ## Starting a new chat with Claude
 
 Tell it to read this file and the files it needs from the GitHub repo (`main`), and to start with "In progress". Check that it uses the latest files before replacing anything.
+
+## Shared log (Shahzad and friend)
+
+How to use this log:
+
+- Before you start: `git pull`. Read the newest entry in your name and the other person's.
+- When you finish a piece of work: add a new entry at the end of YOUR OWN list below, then commit and push it together with your code.
+- Each entry: date, files touched, what changed, what is left, and anything the other person must know. Keep it short.
+- Don't edit the other person's list. That keeps `git pull` free of conflicts.
+- "In progress" and "Done" above stay the single source of truth for what is pending. Update them when a step is finished.
+
+### Shahzad's entries
+
+- 2026-10-17: Rate limiting finished and tested. Languages finished. Payment terms done. Terms page (Terms.tsx, the /terms route, the Signup checkbox) is next. Started using this log.
+
+### Friend's entries
+
+- (add your first entry here)
