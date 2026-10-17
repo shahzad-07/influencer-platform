@@ -2,13 +2,28 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
-import { formatRupees } from "../lib/format";
+import { formatRupees, hasMoney } from "../lib/format";
+import type { CollabType } from "../lib/format";
 
 interface Price {
   serviceType: string;
   amount: number; // paise
   description: string;
 }
+
+const TYPE_OPTIONS: { value: CollabType; label: string; hint: string }[] = [
+  { value: "PAID", label: "Paid", hint: "You pay money" },
+  {
+    value: "BARTER",
+    label: "Barter",
+    hint: "No money, you give a product or service",
+  },
+  {
+    value: "PAID_AND_BARTER",
+    label: "Paid + Barter",
+    hint: "Money and a product or service",
+  },
+];
 
 export default function CreateOffer() {
   const { influencerId } = useParams<{ influencerId: string }>();
@@ -20,6 +35,8 @@ export default function CreateOffer() {
 
   const [title, setTitle] = useState("");
   const [brief, setBrief] = useState("");
+  const [collabType, setCollabType] = useState<CollabType>("PAID");
+  const [barterDescription, setBarterDescription] = useState("");
   const [rupees, setRupees] = useState("");
   const [advancePercent, setAdvancePercent] = useState("50");
   const [deadline, setDeadline] = useState("");
@@ -55,6 +72,11 @@ export default function CreateOffer() {
     };
   }, [influencerId]);
 
+  // Does this offer include money? Barter-only has no amount and no advance.
+  const paid = hasMoney(collabType);
+  // Does it include a product or service? Paid-only does not.
+  const hasBarter = collabType !== "PAID";
+
   // Same rounding as the server, so the preview matches what will be saved
   const amountPaise = Math.round(Number(rupees) * 100);
   const validAmount = Number.isFinite(amountPaise) && amountPaise >= 100;
@@ -69,16 +91,25 @@ export default function CreateOffer() {
     .toISOString()
     .slice(0, 10);
 
+  function pickType(type: CollabType) {
+    setCollabType(type);
+    setError("");
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
 
-    if (!validAmount) {
+    if (paid && !validAmount) {
       setError("Enter an amount of at least ₹1.");
       return;
     }
-    if (!validPct) {
+    if (paid && !validPct) {
       setError("The advance must be a whole number from 1 to 99.");
+      return;
+    }
+    if (hasBarter && barterDescription.trim().length < 5) {
+      setError("Describe what the influencer gets (at least 5 characters).");
       return;
     }
 
@@ -90,8 +121,11 @@ export default function CreateOffer() {
           influencerId,
           title,
           brief,
-          amount: amountPaise,
-          advancePercent: pct,
+          collaborationType: collabType,
+          // The server also ignores money on barter-only offers
+          amount: paid ? amountPaise : 0,
+          advancePercent: paid ? pct : 0,
+          barterDescription: hasBarter ? barterDescription.trim() : "",
           // Empty is left out of the request. A date means the end of that day.
           deadline: deadline
             ? new Date(`${deadline}T23:59:59`).toISOString()
@@ -164,38 +198,80 @@ export default function CreateOffer() {
           />
         </label>
 
-        <label>
-          Total amount (₹)
-          <input
-            type="number"
-            min={1}
-            step="0.01"
-            value={rupees}
-            onChange={(e) => setRupees(e.target.value)}
-            required
-            style={{ width: "100%" }}
-          />
-        </label>
+        <fieldset style={{ border: "1px solid #ccc", borderRadius: 8 }}>
+          <legend>What are you offering?</legend>
+          <div style={{ display: "grid", gap: 6 }}>
+            {TYPE_OPTIONS.map((o) => (
+              <label key={o.value}>
+                <input
+                  type="radio"
+                  name="collabType"
+                  value={o.value}
+                  checked={collabType === o.value}
+                  onChange={() => pickType(o.value)}
+                />{" "}
+                <strong>{o.label}</strong>
+                <span style={{ color: "gray" }}> - {o.hint}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
-        <label>
-          Advance (%) paid before work starts
-          <input
-            type="number"
-            min={1}
-            max={99}
-            step={1}
-            value={advancePercent}
-            onChange={(e) => setAdvancePercent(e.target.value)}
-            required
-            style={{ width: "100%" }}
-          />
-        </label>
+        {hasBarter && (
+          <label>
+            {paid
+              ? "What else do they get besides the money?"
+              : "What will they get in return?"}
+            <textarea
+              value={barterDescription}
+              onChange={(e) => setBarterDescription(e.target.value)}
+              placeholder="e.g. Dinner for two at our restaurant, worth about ₹3,000"
+              minLength={5}
+              maxLength={500}
+              rows={3}
+              required
+              style={{ width: "100%" }}
+            />
+          </label>
+        )}
 
-        {validAmount && validPct && (
-          <p style={{ margin: 0 }}>
-            Advance: <strong>{formatRupees(advance)}</strong> now, final:{" "}
-            <strong>{formatRupees(final)}</strong> after the post is verified.
-          </p>
+        {paid && (
+          <>
+            <label>
+              Total amount (₹)
+              <input
+                type="number"
+                min={1}
+                step="0.01"
+                value={rupees}
+                onChange={(e) => setRupees(e.target.value)}
+                required
+                style={{ width: "100%" }}
+              />
+            </label>
+
+            <label>
+              Advance (%) paid before work starts
+              <input
+                type="number"
+                min={1}
+                max={99}
+                step={1}
+                value={advancePercent}
+                onChange={(e) => setAdvancePercent(e.target.value)}
+                required
+                style={{ width: "100%" }}
+              />
+            </label>
+
+            {validAmount && validPct && (
+              <p style={{ margin: 0 }}>
+                Advance: <strong>{formatRupees(advance)}</strong> now, final:{" "}
+                <strong>{formatRupees(final)}</strong> after the post is
+                verified.
+              </p>
+            )}
+          </>
         )}
 
         <label>
@@ -210,8 +286,10 @@ export default function CreateOffer() {
         </label>
 
         <p style={{ color: "gray", margin: 0 }}>
-          The offer stays open for 7 days. Payments happen directly between you
-          and the influencer, outside this app. The app records them.
+          The offer stays open for 7 days.
+          {paid
+            ? " Payments happen directly between you and the influencer, outside this app. The app records them."
+            : " No money is involved, so the deal is complete once the post is verified."}
         </p>
 
         {error && <p style={{ color: "crimson", margin: 0 }}>{error}</p>}

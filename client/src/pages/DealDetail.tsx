@@ -2,9 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
-import { formatRupees, statusLabel } from "../lib/format";
+import {
+  collabLabel,
+  formatRupees,
+  isPaidType,
+  statusLabel,
+} from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import PaymentSharePanel from "../components/PaymentSharePanel";
+import PaymentTerms from "../components/PaymentTerms";
 
 interface PaymentRecord {
   stage: "ADVANCE" | "FINAL";
@@ -27,6 +33,8 @@ interface Deal {
   id: string;
   title: string;
   brief: string;
+  collaborationType?: string | null;
+  barterDescription?: string;
   deadline?: string | null;
   amount: number;
   currency: string;
@@ -222,6 +230,9 @@ export default function DealDetail() {
         ? deal.payments.final
         : null;
 
+  // Money is involved for everything except barter-only
+  const paid = isPaidType(deal.collaborationType);
+
   function who(by: string | null) {
     if (by === null) return "System";
     if (by === deal!.brand.id) return `${deal!.brand.name} (brand)`;
@@ -239,12 +250,15 @@ export default function DealDetail() {
       <h1 style={{ marginBottom: 4 }}>{deal.title}</h1>
       <div>
         <span style={pill}>{statusLabel(deal.status)}</span>
+        <span style={{ ...pill, marginLeft: 6 }}>
+          {collabLabel(deal.collaborationType)}
+        </span>
         <span style={{ color: "gray", marginLeft: 8 }}>
           {isBrand ? "Influencer" : "Brand"}: {otherName}
         </span>
       </div>
 
-      {/* Money */}
+      {/* Summary: total and progress (money), dates */}
       <div
         style={{
           border: "1px solid #ccc",
@@ -253,19 +267,24 @@ export default function DealDetail() {
           margin: "16px 0",
         }}
       >
-        <div>
-          <strong>Total {formatRupees(deal.amount)}</strong>
-        </div>
-        <div>
-          Advance ({deal.advancePercent}%):{" "}
-          {formatRupees(deal.payments.advance)}
-        </div>
-        <div>Final: {formatRupees(deal.payments.final)}</div>
-        <div style={{ marginTop: 4 }}>
-          Confirmed paid so far: <strong>{formatRupees(deal.paidTotal)}</strong>
-        </div>
+        {paid ? (
+          <>
+            <div>
+              <strong>Total {formatRupees(deal.amount)}</strong>
+            </div>
+            <div style={{ marginTop: 4 }}>
+              Confirmed paid so far:{" "}
+              <strong>{formatRupees(deal.paidTotal)}</strong>
+            </div>
+          </>
+        ) : (
+          <div>
+            <strong>Barter only</strong>{" "}
+            <span style={{ color: "gray" }}>(no money in this deal)</span>
+          </div>
+        )}
         {deal.deadline && (
-          <div style={{ color: "gray" }}>
+          <div style={{ color: "gray", marginTop: 4 }}>
             Deadline: {new Date(deal.deadline).toLocaleDateString()}
           </div>
         )}
@@ -276,6 +295,21 @@ export default function DealDetail() {
           </div>
         )}
       </div>
+
+      {/* Payment terms and/or what the influencer gets, always visible */}
+      <PaymentTerms
+        collaborationType={deal.collaborationType}
+        barterDescription={deal.barterDescription}
+        amounts={
+          paid
+            ? {
+                advance: deal.payments.advance,
+                final: deal.payments.final,
+                advancePercent: deal.advancePercent,
+              }
+            : undefined
+        }
+      />
 
       {/* The brief */}
       <h2>Brief</h2>
@@ -429,40 +463,51 @@ export default function DealDetail() {
         </form>
       )}
 
-      <PaymentSharePanel
-        dealId={deal.id}
-        status={deal.status}
-        role={isBrand ? "BRAND" : "INFLUENCER"}
-        otherName={otherName}
-        payments={deal.payments}
-      />
+      {/* Payment sharing and records only exist when money is involved */}
+      {paid && (
+        <>
+          <PaymentSharePanel
+            dealId={deal.id}
+            status={deal.status}
+            role={isBrand ? "BRAND" : "INFLUENCER"}
+            otherName={otherName}
+            payments={deal.payments}
+          />
 
-      {/* Payment records */}
-      <h2>Payments</h2>
-      {deal.paymentRecords.length === 0 ? (
-        <p style={{ color: "gray" }}>No payments recorded yet.</p>
-      ) : (
-        <div style={{ display: "grid", gap: 8 }}>
-          {deal.paymentRecords.map((p, i) => (
-            <div
-              key={i}
-              style={{ border: "1px solid #ccc", borderRadius: 8, padding: 8 }}
-            >
-              <div>
-                <strong>{p.stage === "ADVANCE" ? "Advance" : "Final"}</strong>:{" "}
-                {formatRupees(p.amount)}{" "}
-                <span style={pill}>{p.status.toLowerCase()}</span>
-              </div>
-              <div style={{ color: "gray", fontSize: 13 }}>
-                Reference {p.reference}. Sent{" "}
-                {new Date(p.sentAt).toLocaleString()}
-                {p.resolvedAt &&
-                  `. Settled ${new Date(p.resolvedAt).toLocaleString()}`}
-              </div>
-              {p.note && <div style={{ fontSize: 13 }}>Note: {p.note}</div>}
+          {/* Payment records */}
+          <h2>Payments</h2>
+          {deal.paymentRecords.length === 0 ? (
+            <p style={{ color: "gray" }}>No payments recorded yet.</p>
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {deal.paymentRecords.map((p, i) => (
+                <div
+                  key={i}
+                  style={{
+                    border: "1px solid #ccc",
+                    borderRadius: 8,
+                    padding: 8,
+                  }}
+                >
+                  <div>
+                    <strong>
+                      {p.stage === "ADVANCE" ? "Advance" : "Final"}
+                    </strong>
+                    : {formatRupees(p.amount)}{" "}
+                    <span style={pill}>{p.status.toLowerCase()}</span>
+                  </div>
+                  <div style={{ color: "gray", fontSize: 13 }}>
+                    Reference {p.reference}. Sent{" "}
+                    {new Date(p.sentAt).toLocaleString()}
+                    {p.resolvedAt &&
+                      `. Settled ${new Date(p.resolvedAt).toLocaleString()}`}
+                  </div>
+                  {p.note && <div style={{ fontSize: 13 }}>Note: {p.note}</div>}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* Timeline */}

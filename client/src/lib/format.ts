@@ -5,6 +5,32 @@ export const formatRupees = (paise: number) =>
     maximumFractionDigits: 2,
   })}`;
 
+// What the brand offers in return for the content
+export type CollabType = "PAID" | "BARTER" | "PAID_AND_BARTER";
+
+export const COLLAB_LABELS: Record<CollabType, string> = {
+  PAID: "Paid",
+  BARTER: "Barter",
+  PAID_AND_BARTER: "Paid + Barter",
+};
+
+// Old deals may not have a type yet, and those are paid
+export const collabLabel = (type?: string | null) =>
+  COLLAB_LABELS[(type as CollabType) ?? "PAID"] ?? "Paid";
+
+// Does money change hands? (everything except barter-only)
+export const hasMoney = (type?: string | null) => type !== "BARTER";
+
+// Same check under the name your other pages already use
+export const isPaidType = hasMoney;
+
+// What to show where an amount normally goes
+export const amountLabel = (paise: number, type?: string | null) => {
+  if (type === "BARTER") return "Barter";
+  if (type === "PAID_AND_BARTER") return `${formatRupees(paise)} + Barter`;
+  return formatRupees(paise);
+};
+
 const STATUS_LABELS: Record<string, string> = {
   OFFERED: "Offer sent",
   ACCEPTED: "Accepted, advance due",

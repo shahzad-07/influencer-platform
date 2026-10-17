@@ -1,19 +1,33 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { formatRupees, statusLabel } from "../lib/format";
+import {
+  collabLabel,
+  formatRupees,
+  isPaidType,
+  statusLabel,
+} from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 
 interface DealItem {
   id: string;
   title: string;
   status: string;
+  collaborationType?: string | null;
   amount: number; // paise
   currency: string;
   deadline?: string | null;
   updatedAt: string;
   otherUser: { id: string; name: string };
 }
+
+const pill = {
+  background: "#eee",
+  color: "#333",
+  borderRadius: 12,
+  padding: "2px 8px",
+  fontSize: 12,
+} as const;
 
 export default function Deals() {
   const { user } = useAuth();
@@ -77,22 +91,20 @@ export default function Deals() {
               }}
             >
               <strong>{d.title}</strong>
-              <span>{formatRupees(d.amount)}</span>
+              {/* Barter-only has no money, so show the type instead of ₹0 */}
+              <span>
+                {isPaidType(d.collaborationType)
+                  ? formatRupees(d.amount)
+                  : "Barter"}
+              </span>
             </div>
             <div style={{ color: "gray", marginTop: 4 }}>
               {isBrand ? "Influencer" : "Brand"}: {d.otherUser.name}
             </div>
             <div style={{ marginTop: 8 }}>
-              <span
-                style={{
-                  background: "#eee",
-                  color: "#333",
-                  borderRadius: 12,
-                  padding: "2px 8px",
-                  fontSize: 12,
-                }}
-              >
-                {statusLabel(d.status)}
+              <span style={pill}>{statusLabel(d.status)}</span>
+              <span style={{ ...pill, marginLeft: 6 }}>
+                {collabLabel(d.collaborationType)}
               </span>
               {d.deadline && (
                 <span style={{ color: "gray", marginLeft: 8, fontSize: 13 }}>
