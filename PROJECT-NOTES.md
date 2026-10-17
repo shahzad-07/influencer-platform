@@ -1,6 +1,6 @@
 # Influencer platform: project notes
 
-Last updated: 2026-10-17. Repo: github.com/shahzad-07/influencer-platform (public, so never commit a `.env` file or a real password). Shahzad and a friend both work on `main`.
+Last updated: 2026-10-18. Repo: github.com/shahzad-07/influencer-platform (public, so never commit a `.env` file or a real password). Shahzad and a friend both work on `main`.
 
 ## Stack
 
@@ -55,18 +55,30 @@ Decision: Render for both the server (Web Service) and the client (Static Site).
 2. Server ready for production: `build` and `start` scripts in `server/package.json`, and check how CORS, Socket.io and `TRUST_PROXY=1` use `CLIENT_URL`. - Done
 3. Client ready: DONE for the code. There is now one setting, `VITE_API_URL` (the server address ending in `/api`, no trailing slash). The chat address is worked out from it, and `VITE_SOCKET_URL` no longer exists. It is baked in when the client is built, so set it on the host before building. Still to do in piece 5: the rewrite rule on Render that sends every page URL to `index.html` (otherwise refreshing `/deals` gives a 404).
 4. A separate production database: DONE. A new Atlas project `influencer-platform-prod` with its own free cluster, database user `influencer_app`, and Network Access `0.0.0.0/0` (Render's free tier has no fixed IP, so the protection is the long random password). The database name is `influencerprod`. The connection string is kept only in the owner's password manager. It goes into Render as `MONGODB_URI` and never into `server/.env` on a PC. Atlas may deactivate idle free clusters, so don't treat it as permanent storage.
-5. Deploy the server, then the client, then set `CLIENT_URL` and `VITE_API_URL` to the real URLs.
-6. Smoke test on the live site: sign up, make an offer, run a barter deal, check chat.
+5. Deploy on Render.
+   - 5a. Server: DONE and live at `https://influencer-platform-api.onrender.com` (health page: `/api/health`). Settings used: Web Service, Free, region Singapore, branch `main`, Root Directory `server`, Build Command `npm ci && npm run build`, Start Command `npm start`, Health Check Path `/api/health`. Environment variables set: `NODE_VERSION=24`, `MONGODB_URI` (the production string, which must end in `/influencerprod?...`), `JWT_SECRET` and `PAYMENT_ENCRYPTION_KEY` (both new, made for production and backed up in the password manager). Not set yet: `CLIENT_URL` (the server prints a warning and allows only `http://localhost:5173` until it is set) and `TRUST_PROXY` (see "Things to remember").
+   - 5b. Client as a Render Static Site: root directory `client`, build command `npm ci && npm run build`, publish directory `dist`, environment variable `VITE_API_URL` = `https://influencer-platform-api.onrender.com/api`, and a Rewrite rule (source `/*`, destination `/index.html`, action Rewrite) so refreshing `/deals` does not give a 404. TO DO.
+   - 5c. Put the client's real address into `CLIENT_URL` on the server (no trailing slash). The server redeploys by itself. TO DO.
+   - 5d. Measure `TRUST_PROXY` (see "Things to remember"). TO DO.
+6. Smoke test on the live site: sign up (a real address, never a `@test.com` one), make an offer, run a barter deal, check chat. TO DO.
 
 Things to remember:
 
-- Environment variables: `PORT`, `MONGODB_URI`, `JWT_SECRET`, `PAYMENT_ENCRYPTION_KEY`, `CLIENT_URL`, plus `TRUST_PROXY=1` on the server and `VITE_API_URL` (the only client setting) on the client. Use new production values for the secrets, not the dev ones.
+- Environment variables: `MONGODB_URI`, `JWT_SECRET`, `PAYMENT_ENCRYPTION_KEY`, `CLIENT_URL`, `NODE_VERSION`, and `TRUST_PROXY` once measured, on the server (`PORT` is set by Render, so don't add it), and `VITE_API_URL` (the only client setting) on the client. Use new production values for the secrets, not the dev ones. Never set `RATE_LIMIT_OFF` in production.
+- `TRUST_PROXY`: do NOT set it to 1 without measuring. Other projects measured 3 proxy hops in front of apps on Render (client, Cloudflare, Render's load balancer) and one assumed 1, so the real number is uncertain. A wrong number means either all visitors share one rate limit, or the limit can be dodged by faking an address. Plan: after the client is live, add a temporary log line that prints only how many addresses are in `X-Forwarded-For` (the count, never the addresses), call `/api/health` from outside, read the count in Render's logs, set `TRUST_PROXY` to that number, then remove the log line. Until then it stays unset, so on the live site all visitors share one limit bucket, which is fine for a smoke test and bad for real users.
+- Node version on Render: `NODE_VERSION=24` (it wins over everything else). `engines` in `server/package.json` is `>=22` with no upper limit, which Render resolves to the newest Node release, so don't remove the variable (or add an upper bound such as `>=22 <25`).
+- Render dashboard: a service's own variables are on its **Environment** page in the left sidebar (scroll the sidebar down). The `← Environment` link at the top left is only the breadcrumb back to the project overview. Saving a variable normally redeploys by itself; if not, use **Manual Deploy** then **Deploy latest commit**.
 - CORS and Socket.io must allow only the real client URL.
 - A free Render web service spins down after 15 minutes without traffic and takes about a minute to wake. Fine for testing, not for real users (a paid always-on server removes this).
 - Atlas Network Access: a free Render service has no fixed outgoing IP, so the production cluster will probably need to allow access from anywhere (`0.0.0.0/0`), protected by a strong database password. A trade-off to accept knowingly.
 - Never put the production connection string in `server/.env` on a PC. It lives only on the hosting service. Never run test scripts against production.
 
 ## Next
+
+Small to-dos (any time):
+
+- Make the `PAYMENT_ENCRYPTION_KEY` startup error in `server/src/index.ts` say how many characters it found (never the value). It would have shown straight away that a pasted key had extra characters.
+- A real change of `PAYMENT_ENCRYPTION_KEY` after data exists would need a one-time migration script (decrypt with the old key, encrypt with the new one). It does not exist yet. The `v1:` prefix on stored values leaves room for it.
 
 Later: brand subscription gate, dashboards, reviews and reputation, notifications, phone OTP, open campaigns, counter-offers, multiple deliverables, rate cards, chat upgrades, availability toggle, deal agreement, admin/disputes and the offer-expiry job.
 
@@ -87,6 +99,21 @@ Not wanted: reel uploads, SEO/growth pages, AI helper.
 - In Git Bash, `node` inside `$(...)` fails (not a tty), and long pasted commands get mangled.
 - Pasting several files at once once put code in the wrong files, so do one file at a time.
 - Before replacing a file, make sure you have the latest version. Local files can be ahead of what a chat was shown.
+- Production secrets: never type them into chat, a file in the repo, or a screenshot. Make them with the helper scripts below, which put them on the clipboard without showing them, paste them straight into Render and the password manager, then copy other text to clear the clipboard (and clear Windows clipboard history with Win+V).
+- `PAYMENT_ENCRYPTION_KEY` is the one secret that must be backed up before anything else. See "What happens if a secret is lost" below.
+- The first Render deploy of the server failed because the pasted `PAYMENT_ENCRYPTION_KEY` was not 64 clean hex characters (a check showed 67 characters at one point). The helper scripts themselves produce a clean key, and the cause of the extra characters was not found. Since nothing was encrypted yet, the key was simply replaced. Always run `check-clipboard.mjs` before pasting a key, and again on the password manager's copy of it.
+
+## What happens if a secret is lost
+
+- `PAYMENT_ENCRYPTION_KEY`: it only protects influencers' saved payment details (the `PaymentDetails` collection; shares decrypt the current details when a brand views them, they keep no copy). If the key is lost or changed, those details can't be read: the influencer's page says "Could not read the saved details" and a brand opening shared details gets "Could not read the payment details". Deals, payment records (UTRs, amounts), chat and profiles are not encrypted with it, so nothing else is lost and no money is lost. Each influencer then has to enter their payment details again. The key can still be read from the Environment page of the Render service while the service exists, so the password manager copy protects against losing the Render account or deleting the service.
+- `JWT_SECRET`: can be replaced any time. Everyone just has to log in again.
+- `MONGODB_URI`: if lost, reset the database user's password in Atlas and update Render. No data is affected.
+
+## Helper scripts (in `server/`, Windows only, they use the `clip` command)
+
+- `node scripts/make-secret.mjs payment` makes a new 64-character hex `PAYMENT_ENCRYPTION_KEY` and copies it to the clipboard. `node scripts/make-secret.mjs jwt` does the same for a `JWT_SECRET`. Nothing is printed except the length, and nothing is saved to a file. Each run replaces the clipboard, so paste before you run it again.
+- `node scripts/check-clipboard.mjs` checks that the clipboard holds a clean 64-character hex key. It prints only the length, how many characters are not hex, and the codes of up to 10 of them (so only use it on a key you have just made or are about to discard, not on other secrets). Chain them to rule out anything changing the clipboard in between: `node scripts/make-secret.mjs payment && node scripts/check-clipboard.mjs`.
+- `scripts/make-key.mjs` (older) writes a dev key into `server/.env`. Don't use it for production.
 
 ## Test scripts
 
@@ -138,6 +165,6 @@ How to use this log:
 - 2026-10-17: Step 5 piece 3 done. `client/src/lib/api.ts` exports `API_URL` (trailing slash removed, console error in a live build if `VITE_API_URL` is missing). `client/src/lib/socket.ts` now derives the chat address from `API_URL`, so `VITE_SOCKET_URL` is gone. Nothing changes for local work. Next: piece 4, the separate production database on Atlas.
 - 2026-10-17: Step 5 piece 4 done (production database set up in Atlas, no code changes). Nothing to pull or run. The connection string is not in the repo and must stay out of it. Next: piece 5, the deploy on Render, starting with new production values for `JWT_SECRET` and `PAYMENT_ENCRYPTION_KEY`.
 
-### Friend's entries
+### Shazu's entries (the friend)
 
-- (add your first entry here)
+- 2026-10-18 (Shazu): Step 5, piece 5a done: the server is live on Render at `https://influencer-platform-api.onrender.com` (settings and variables are listed under "In progress", step 5a). New files: `server/scripts/make-secret.mjs` and `server/scripts/check-clipboard.mjs` (see "Helper scripts"). Added the sections "What happens if a secret is lost" and "Helper scripts", and corrected the `TRUST_PROXY` advice (don't use 1 without measuring). Checked: the build and start commands ran on Render (Node 24.22.0) and Render shows the service as Live. The first deploy failed on a malformed `PAYMENT_ENCRYPTION_KEY`. It was replaced before any data existed. Nothing to pull or run on your side; no code in `src/` changed. Next: 5b, the client as a Render Static Site, then 5c (`CLIENT_URL`) and 5d (measure `TRUST_PROXY`).
