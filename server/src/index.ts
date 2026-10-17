@@ -13,14 +13,33 @@ import brandRoutes from "./modules/brands/brand.routes";
 import dealRoutes from "./modules/deals/deal.routes";
 import paymentDetailsRoutes from "./modules/payments/payment-details.routes";
 import paymentShareRoutes from "./modules/payments/payment-share.routes";
+import {
+  apiLimiter,
+  loginAccountLimiter,
+  loginIpLimiter,
+  registerLimiter,
+} from "./lib/rate-limit";
 
 const app = express();
+
+// Behind a hosting proxy, set TRUST_PROXY=1 so that req.ip is the visitor's
+// address and not the proxy's. Leave it unset when running on your own computer.
+const proxyHops = Number(process.env.TRUST_PROXY);
+if (Number.isInteger(proxyHops) && proxyHops > 0) {
+  app.set("trust proxy", proxyHops);
+}
+
 app.use(cors());
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
+
+// Rate limits (they must come before the routes they protect)
+app.use("/api", apiLimiter);
+app.use("/api/auth/login", loginIpLimiter, loginAccountLimiter);
+app.use("/api/auth/register", registerLimiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/profiles", profileRoutes);
