@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { formatRupees, hasMoney } from "../lib/format";
 import type { CollabType } from "../lib/format";
+import PaymentTerms from "../components/PaymentTerms";
 
 interface Price {
   serviceType: string;
@@ -263,14 +264,6 @@ export default function CreateOffer() {
                 style={{ width: "100%" }}
               />
             </label>
-
-            {validAmount && validPct && (
-              <p style={{ margin: 0 }}>
-                Advance: <strong>{formatRupees(advance)}</strong> now, final:{" "}
-                <strong>{formatRupees(final)}</strong> after the post is
-                verified.
-              </p>
-            )}
           </>
         )}
 
@@ -285,11 +278,19 @@ export default function CreateOffer() {
           />
         </label>
 
+        {/* The same terms the influencer will see before accepting */}
+        <PaymentTerms
+          collaborationType={collabType}
+          barterDescription={barterDescription}
+          amounts={
+            paid && validAmount && validPct
+              ? { advance, final, advancePercent: pct }
+              : undefined
+          }
+        />
+
         <p style={{ color: "gray", margin: 0 }}>
           The offer stays open for 7 days.
-          {paid
-            ? " Payments happen directly between you and the influencer, outside this app. The app records them."
-            : " No money is involved, so the deal is complete once the post is verified."}
         </p>
 
         {error && <p style={{ color: "crimson", margin: 0 }}>{error}</p>}

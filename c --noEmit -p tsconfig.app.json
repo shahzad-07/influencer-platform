@@ -1,7 +1,0 @@
-warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
- .gitignore                       |   4 [32m+[m[31m-[m
- client/src/lib/format.ts         |  26 [32m+++++++[m
- client/src/pages/CreateOffer.tsx | 152 [32m+++++++++++++++++++++++++++++[m[31m----------[m
- client/src/pages/DealDetail.tsx  | 139 [32m+++++++++++++++++++++++[m[31m------------[m
- client/src/pages/Deals.tsx       |  36 [32m++++++[m[31m----[m
- 5 files changed, 260 insertions(+), 97 deletions(-)
