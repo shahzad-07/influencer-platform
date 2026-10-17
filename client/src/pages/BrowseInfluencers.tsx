@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import { LANGUAGES } from "../lib/languages";
 
 interface SocialLink {
   platform: string;
@@ -14,6 +15,7 @@ interface InfluencerCard {
   name: string;
   bio: string;
   niches: string[];
+  languages?: string[];
   location: string;
   socialLinks: SocialLink[];
 }
@@ -31,8 +33,13 @@ export default function BrowseInfluencers() {
   // What the user is typing
   const [nicheInput, setNicheInput] = useState("");
   const [locationInput, setLocationInput] = useState("");
+  const [languageInput, setLanguageInput] = useState("");
   // What is actually applied to the search
-  const [filters, setFilters] = useState({ niche: "", location: "" });
+  const [filters, setFilters] = useState({
+    niche: "",
+    location: "",
+    language: "",
+  });
   const [page, setPage] = useState(1);
 
   const [data, setData] = useState<ListResponse | null>(null);
@@ -48,6 +55,7 @@ export default function BrowseInfluencers() {
     });
     if (filters.niche) params.set("niche", filters.niche);
     if (filters.location) params.set("location", filters.location);
+    if (filters.language) params.set("language", filters.language);
 
     setLoading(true);
     setError("");
@@ -74,14 +82,19 @@ export default function BrowseInfluencers() {
   function handleSearch(e: FormEvent) {
     e.preventDefault();
     setPage(1);
-    setFilters({ niche: nicheInput.trim(), location: locationInput.trim() });
+    setFilters({
+      niche: nicheInput.trim(),
+      location: locationInput.trim(),
+      language: languageInput,
+    });
   }
 
   function handleClear() {
     setNicheInput("");
     setLocationInput("");
+    setLanguageInput("");
     setPage(1);
-    setFilters({ niche: "", location: "" });
+    setFilters({ niche: "", location: "", language: "" });
   }
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / LIMIT)) : 1;
@@ -109,6 +122,18 @@ export default function BrowseInfluencers() {
           value={locationInput}
           onChange={(e) => setLocationInput(e.target.value)}
         />
+        <select
+          value={languageInput}
+          onChange={(e) => setLanguageInput(e.target.value)}
+          aria-label="Language"
+        >
+          <option value="">Any language</option>
+          {LANGUAGES.map((lang) => (
+            <option key={lang} value={lang}>
+              {lang}
+            </option>
+          ))}
+        </select>
         <button type="submit">Search</button>
         <button type="button" onClick={handleClear}>
           Clear
@@ -168,6 +193,11 @@ export default function BrowseInfluencers() {
                     </span>
                   ))}
                 </div>
+                {inf.languages && inf.languages.length > 0 && (
+                  <div style={{ fontSize: 13, marginBottom: 4 }}>
+                    Languages: {inf.languages.join(", ")}
+                  </div>
+                )}
                 <div style={{ fontSize: 13, color: "gray" }}>
                   {totalFollowers(inf.socialLinks).toLocaleString("en-IN")}{" "}
                   followers total

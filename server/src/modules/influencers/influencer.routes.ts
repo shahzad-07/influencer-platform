@@ -1,7 +1,7 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import { z } from "zod";
-import { ProfileModel } from "../profiles/profile.model";
+import { ProfileModel, LANGUAGES } from "../profiles/profile.model";
 import { authenticate, requireRole } from "../auth/auth.middleware";
 
 const router = Router();
@@ -12,6 +12,7 @@ const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const listQuery = z.object({
   niche: z.string().trim().max(30).optional(),
   location: z.string().trim().max(100).optional(),
+  language: z.enum(LANGUAGES).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(20).default(12),
 });
@@ -22,11 +23,13 @@ router.get("/", authenticate, requireRole("BRAND"), async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
   }
-  const { niche, location, page, limit } = parsed.data;
+  const { niche, location, language, page, limit } = parsed.data;
 
   const filter: Record<string, unknown> = {};
   if (niche) filter.niches = new RegExp(`^${escapeRegex(niche)}$`, "i");
   if (location) filter.location = new RegExp(escapeRegex(location), "i");
+  // Matches any profile whose languages list contains this one
+  if (language) filter.languages = language;
 
   const [profiles, total] = await Promise.all([
     ProfileModel.find(filter)
@@ -48,6 +51,7 @@ router.get("/", authenticate, requireRole("BRAND"), async (req, res) => {
       name: p.user.name,
       bio: p.bio,
       niches: p.niches,
+      languages: p.languages ?? [],
       location: p.location,
       socialLinks: p.socialLinks,
     }));
@@ -77,6 +81,7 @@ router.get("/:id", authenticate, requireRole("BRAND"), async (req, res) => {
       name: profile.user.name,
       bio: profile.bio,
       niches: profile.niches,
+      languages: profile.languages ?? [],
       location: profile.location,
       socialLinks: profile.socialLinks,
       portfolio: profile.portfolio ?? [],

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { ProfileModel } from "./profile.model";
+import { ProfileModel, LANGUAGES, MAX_LANGUAGES } from "./profile.model";
 import { authenticate, requireRole } from "../auth/auth.middleware";
 
 const router = Router();
@@ -18,6 +18,12 @@ const httpUrl = z
 const profileSchema = z.object({
   bio: z.string().max(500).optional(),
   niches: z.array(z.string().trim().min(1).max(30)).max(10).optional(),
+  // Only languages from the fixed list, no repeats
+  languages: z
+    .array(z.enum(LANGUAGES))
+    .max(MAX_LANGUAGES)
+    .transform((list) => [...new Set(list)])
+    .optional(),
   location: z.string().trim().max(100).optional(),
   socialLinks: z
     .array(

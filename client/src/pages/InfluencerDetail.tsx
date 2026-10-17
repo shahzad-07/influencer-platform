@@ -20,6 +20,7 @@ interface Influencer {
   name: string;
   bio: string;
   niches: string[];
+  languages?: string[]; // older profiles may not have it
   location: string;
   socialLinks: SocialLink[];
   portfolio?: PortfolioItem[]; // older profiles may not have it
@@ -97,6 +98,7 @@ export default function InfluencerDetail() {
   }
 
   const portfolio = influencer?.portfolio ?? [];
+  const languages = influencer?.languages ?? [];
 
   return (
     <div style={{ maxWidth: 700, margin: "40px auto", padding: 16 }}>
@@ -132,6 +134,12 @@ export default function InfluencerDetail() {
               </span>
             ))}
           </div>
+
+          {languages.length > 0 && (
+            <div style={{ margin: "0 0 12px" }}>
+              <strong>Languages:</strong> {languages.join(", ")}
+            </div>
+          )}
 
           {influencer.bio && <p>{influencer.bio}</p>}
 

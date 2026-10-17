@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import { LANGUAGES, MAX_LANGUAGES } from "../lib/languages";
+import type { Language } from "../lib/languages";
 
 const PLATFORMS = [
   "INSTAGRAM",
@@ -33,6 +35,7 @@ interface PortfolioItem {
 interface Profile {
   bio: string;
   niches: string[];
+  languages?: string[]; // older profiles may not have it
   location: string;
   socialLinks: SocialLink[];
   portfolio?: PortfolioItem[]; // older profiles may not have it
@@ -42,6 +45,7 @@ export default function InfluencerProfile() {
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [nichesText, setNichesText] = useState(""); // "tech, lifestyle"
+  const [languages, setLanguages] = useState<Language[]>([]);
   const [links, setLinks] = useState<SocialLink[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
 
@@ -58,6 +62,12 @@ export default function InfluencerProfile() {
           setBio(profile.bio);
           setLocation(profile.location);
           setNichesText(profile.niches.join(", "));
+          // Keep only languages that are on the list
+          setLanguages(
+            (profile.languages ?? []).filter((l): l is Language =>
+              (LANGUAGES as readonly string[]).includes(l),
+            ),
+          );
           setLinks(profile.socialLinks);
           setPortfolio(
             (profile.portfolio ?? []).map((p) => ({
@@ -72,6 +82,15 @@ export default function InfluencerProfile() {
       )
       .finally(() => setLoading(false));
   }, []);
+
+  // ----- languages -----
+  function toggleLanguage(lang: Language) {
+    if (languages.includes(lang)) {
+      setLanguages(languages.filter((l) => l !== lang));
+    } else if (languages.length < MAX_LANGUAGES) {
+      setLanguages([...languages, lang]);
+    }
+  }
 
   // ----- social links -----
   function updateLink(index: number, changes: Partial<SocialLink>) {
@@ -123,6 +142,7 @@ export default function InfluencerProfile() {
           bio,
           location,
           niches,
+          languages,
           socialLinks: links,
           portfolio,
         }),
@@ -175,6 +195,28 @@ export default function InfluencerProfile() {
             style={{ width: "100%" }}
           />
         </label>
+
+        <fieldset style={{ border: "1px solid #ccc", borderRadius: 8 }}>
+          <legend>
+            Languages you make content in ({languages.length}/{MAX_LANGUAGES})
+          </legend>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px" }}>
+            {LANGUAGES.map((lang) => {
+              const checked = languages.includes(lang);
+              return (
+                <label key={lang}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={!checked && languages.length >= MAX_LANGUAGES}
+                    onChange={() => toggleLanguage(lang)}
+                  />{" "}
+                  {lang}
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
 
         <div>
           <strong>Social links (up to 5)</strong>

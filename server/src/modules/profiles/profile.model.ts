@@ -1,5 +1,27 @@
 import { Schema, model } from "mongoose";
 
+// Languages an influencer can make content in. A fixed list keeps the
+// brand-search filter clean ("Hindi" always means Hindi). The client keeps
+// the same list in client/src/lib/languages.ts, so change both together.
+export const LANGUAGES = [
+  "English",
+  "Hindi",
+  "Urdu",
+  "Bengali",
+  "Telugu",
+  "Marathi",
+  "Tamil",
+  "Gujarati",
+  "Kannada",
+  "Malayalam",
+  "Odia",
+  "Punjabi",
+  "Assamese",
+] as const;
+export type Language = (typeof LANGUAGES)[number];
+
+export const MAX_LANGUAGES = 6;
+
 const socialLinkSchema = new Schema(
   {
     platform: {
@@ -38,6 +60,11 @@ const profileSchema = new Schema(
     },
     bio: { type: String, trim: true, maxlength: 500, default: "" },
     niches: { type: [String], default: [] }, // e.g. ["fashion", "tech"]
+    // Profiles saved before this field existed simply have none
+    languages: {
+      type: [{ type: String, enum: LANGUAGES }],
+      default: [],
+    },
     location: { type: String, trim: true, default: "" },
     socialLinks: { type: [socialLinkSchema], default: [] },
     portfolio: { type: [portfolioItemSchema], default: [] },
