@@ -1,6 +1,6 @@
 # Influencer platform: project notes
 
-Last updated: 2026-10-17. Repo: github.com/shahzad-07/influencer-platform (public, so never commit a `.env` file). Shahzad and a friend both work on `main`.
+Last updated: 2026-10-17. Repo: github.com/shahzad-07/influencer-platform (public, so never commit a `.env` file or a real password). Shahzad and a friend both work on `main`.
 
 ## Stack
 
@@ -42,23 +42,31 @@ Last updated: 2026-10-17. Repo: github.com/shahzad-07/influencer-platform (publi
   - 10 sign-ups per connection per hour
   - 300 requests per minute per connection for everything else
   - Only failed logins count, so normal logins and tests are not affected.
-  - Counts live in server memory. Restarting the server clears them (handy if you lock yourself out while testing). This only works for one server instance.
+  - Counts live in server memory. Restarting the server clears them (handy if you lock yourself out while testing). This only works for one server instance, and on a free host it also resets whenever the server spins down.
   - Optional env vars: `TRUST_PROXY=1` (set it when the server is behind a hosting proxy) and `RATE_LIMIT_OFF=1` (local testing only, never in production).
+- Terms page (draft): `client/src/pages/Terms.tsx`, a public `/terms` route in `client/src/App.tsx`, and a required "I agree to the Terms" checkbox on `client/src/pages/Signup.tsx`. The business name, contact email and city are placeholders in one block at the top of `Terms.tsx` and still need filling in. A lawyer must review the text before launch.
+- Test scripts no longer contain any default login. The influencer test account comes only from environment variables, through `server/scripts/test-env.mjs` (see "Test scripts" below).
 
-## In progress: step 4 (Terms page + rate limiting)
+## In progress: step 5, free-tier deploy
 
-## it’s done (move it into the “Done” list).
+Decision: Render for both the server (Web Service) and the client (Static Site). Pieces, in order:
 
-Rate limiting is done and tested. Three client files are left:
+1. Pre-deploy cleanup: test scripts read the influencer login from environment variables only. DONE.
+2. Server ready for production: `build` and `start` scripts in `server/package.json`, and check how CORS, Socket.io and `TRUST_PROXY=1` use `CLIENT_URL`.
+3. Client ready: `VITE_API_URL`, and a rewrite rule that sends every page URL to `index.html` (otherwise refreshing `/deals` gives a 404).
+4. A separate production database: a new Atlas project with its own free cluster and its own database user. Never share anything with the dev database.
+5. Deploy the server, then the client, then set `CLIENT_URL` and `VITE_API_URL` to the real URLs.
+6. Smoke test on the live site: sign up, make an offer, run a barter deal, check chat.
 
-1. `client/src/pages/Terms.tsx` (new). A public page in plain language, built from how the platform really works: marketplace only, payments happen outside the app and the app only records them, payment details stored encrypted and shared for 6 hours with every view logged, barter deals, offers expire after 7 days, disputes freeze a deal, account and conduct rules, endorsement disclosure, limits of liability, governing law of India, contact. Put the business name, contact email, city and last-updated date in one block at the top of the file. Mark it as a draft. A lawyer must review it before launch.
-2. `client/src/App.tsx`: add the public route `/terms` (no `ProtectedRoute`).
-3. `client/src/pages/Signup.tsx`: a required "I agree to the Terms" checkbox with a link that opens `/terms` in a new tab.
-   Then do the git step.
+Things to remember:
+
+- Environment variables: `PORT`, `MONGODB_URI`, `JWT_SECRET`, `PAYMENT_ENCRYPTION_KEY`, `CLIENT_URL`, plus `TRUST_PROXY=1` on the server and `VITE_API_URL` on the client. Use new production values for the secrets, not the dev ones.
+- CORS and Socket.io must allow only the real client URL.
+- A free Render web service spins down after 15 minutes without traffic and takes about a minute to wake. Fine for testing, not for real users (a paid always-on server removes this).
+- Atlas Network Access: a free Render service has no fixed outgoing IP, so the production cluster will probably need to allow access from anywhere (`0.0.0.0/0`), protected by a strong database password. A trade-off to accept knowingly.
+- Never put the production connection string in `server/.env` on a PC. It lives only on the hosting service. Never run test scripts against production.
 
 ## Next
-
-5. Free-tier deploy. Things to remember: use a separate production database, never the dev one. Environment variables are `PORT`, `MONGODB_URI`, `JWT_SECRET`, `PAYMENT_ENCRYPTION_KEY`, `CLIENT_URL`, plus `TRUST_PROXY=1` on the server and `VITE_API_URL` on the client. Check that CORS and Socket.io allow only the real client URL. Atlas Network Access must allow the host.
 
 Later: brand subscription gate, dashboards, reviews and reputation, notifications, phone OTP, open campaigns, counter-offers, multiple deliverables, rate cards, chat upgrades, availability toggle, deal agreement, admin/disputes and the offer-expiry job.
 
@@ -66,7 +74,9 @@ Not wanted: reel uploads, SEO/growth pages, AI helper.
 
 ## Security and legal to-dos
 
-- Some test scripts (at least `portfolio-test.mjs` and `language-test.mjs`) have a default test email and password written in them, and the repo is public. Change that test account's password, then use only the `INFLUENCER_EMAIL` / `INFLUENCER_PASSWORD` environment variables with no defaults. Never use test accounts on the production database.
+- The old default login that was written in the test scripts is in the git history of a public repo, so it is permanently public. Never reuse that password anywhere. The scripts now have no defaults.
+- The brand and outsider test accounts (`brand@test.com`, `other@test.com`, `brand2@test.com`, password `password123`) are throwaway dev accounts. They must never exist on the production database.
+- Fill in the business name, contact email and city at the top of `Terms.tsx`.
 - The Terms checkbox is only checked in the browser. Later, record on the server when each user accepted and which version.
 - A privacy policy is also needed (personal data, India's DPDP Act). Get both documents reviewed by a lawyer.
 - Chat messages are not rate limited, and Socket.io is not covered by the limiter.
@@ -80,7 +90,16 @@ Not wanted: reel uploads, SEO/growth pages, AI helper.
 
 ## Test scripts
 
-Run in `server/`, with the server running (`npm run dev`):
+Run in `server/`, with the server running (`npm run dev`).
+
+The influencer test account has no default. Sign it up once in the dev app (made-up email, strong password you use nowhere else), then in each terminal window set it. The second command asks for the password silently:
+
+```
+export INFLUENCER_EMAIL=influencer@test.com
+read -s -p "Influencer test password: " INFLUENCER_PASSWORD; export INFLUENCER_PASSWORD
+```
+
+If the variables are missing, the scripts stop with a clear message. Two scripts (`payment-details-test.mjs`, `payment-share-test.mjs`) also connect straight to the database from `server/.env`, so they are for the dev database only.
 
 - `npx tsx scripts/transitions-test.ts`
 - `npx tsx scripts/barter-transitions-test.ts`
@@ -112,12 +131,10 @@ How to use this log:
 
 ### Shahzad's entries
 
-- 2026-10-17: Rate limiting finished and tested. Languages finished. Payment terms done. Terms page (Terms.tsx, the /terms route, the Signup checkbox) is next. Started using this log.
+- 2026-10-17: Rate limiting finished and tested. Languages finished. Payment terms done. Started using this log.
+- 2026-10-17: Terms page (`Terms.tsx`), public `/terms` route in `App.tsx`, and the required "I agree to the Terms" checkbox in `Signup.tsx`. Step 4 is finished. Still to do: fill in the business name, email and city at the top of `Terms.tsx`, and get the text reviewed by a lawyer.
+- 2026-10-17: Step 5 started (deploy on Render, both server and client). Piece 1 done: new `server/scripts/test-env.mjs`, and 8 test scripts (`deals`, `collab`, `language`, `payment-details`, `payment-records`, `payment-share`, `portfolio`, `socket`) now read the influencer login from `INFLUENCER_EMAIL` / `INFLUENCER_PASSWORD` only, with no defaults. After you pull, set the two variables (see "Test scripts"), and use your own made-up test account. Next: piece 2, the server build/start scripts and CORS check.
 
 ### Friend's entries
 
 - (add your first entry here)
-
-### Shahzad's entries
-
-- 2026-10-17: Terms page (Terms.tsx), public /terms route in App.tsx, and the required "I agree to the Terms" checkbox in Signup.tsx. Step 4 is finished. Still to do: fill in the business name, email and city at the top of Terms.tsx, and get the text reviewed by a lawyer. Next: step 5, free-tier deploy.

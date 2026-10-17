@@ -1,14 +1,12 @@
 import "dotenv/config";
 import mongoose from "mongoose";
+import { influencerFromEnv } from "./test-env.mjs";
 
 const API = "http://localhost:5000/api";
 
 const ACCOUNTS = {
   brand: { email: "brand@test.com", password: "password123" },
-  influencer: {
-    email: process.env.INFLUENCER_EMAIL ?? "Shahzad@gmail.com",
-    password: process.env.INFLUENCER_PASSWORD ?? "Shahzad@07",
-  },
+  influencer: influencerFromEnv(),
 };
 
 // Obviously fake test values
