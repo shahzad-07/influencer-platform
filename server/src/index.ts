@@ -20,6 +20,39 @@ import {
   registerLimiter,
 } from "./lib/rate-limit";
 
+// Stop at startup, with a clear message, if a setting is missing or wrong.
+// Only the names are printed, never the values.
+function checkSettings() {
+  const problems: string[] = [];
+
+  if (!process.env.MONGODB_URI) problems.push("MONGODB_URI is missing");
+  if (!process.env.JWT_SECRET) problems.push("JWT_SECRET is missing");
+  if (!/^[0-9a-fA-F]{64}$/.test(process.env.PAYMENT_ENCRYPTION_KEY ?? "")) {
+    problems.push("PAYMENT_ENCRYPTION_KEY must be 64 hex characters");
+  }
+
+  const clientUrl = process.env.CLIENT_URL;
+  if (clientUrl) {
+    if (!/^https?:\/\//.test(clientUrl)) {
+      problems.push("CLIENT_URL must start with http:// or https://");
+    }
+    if (clientUrl.endsWith("/")) {
+      problems.push("CLIENT_URL must not end with a slash");
+    }
+  } else {
+    console.warn(
+      "CLIENT_URL is not set, so only http://localhost:5173 can use this API.",
+    );
+  }
+
+  if (problems.length > 0) {
+    console.error("Cannot start:\n- " + problems.join("\n- "));
+    process.exit(1);
+  }
+}
+
+checkSettings();
+
 const app = express();
 
 // Behind a hosting proxy, set TRUST_PROXY=1 so that req.ip is the visitor's
@@ -29,7 +62,8 @@ if (Number.isInteger(proxyHops) && proxyHops > 0) {
   app.set("trust proxy", proxyHops);
 }
 
-app.use(cors());
+// Only the real client may call the API from a browser (same rule as Socket.io)
+app.use(cors({ origin: process.env.CLIENT_URL ?? "http://localhost:5173" }));
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => {

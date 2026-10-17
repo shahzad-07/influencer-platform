@@ -52,7 +52,7 @@ Last updated: 2026-10-17. Repo: github.com/shahzad-07/influencer-platform (publi
 Decision: Render for both the server (Web Service) and the client (Static Site). Pieces, in order:
 
 1. Pre-deploy cleanup: test scripts read the influencer login from environment variables only. DONE.
-2. Server ready for production: `build` and `start` scripts in `server/package.json`, and check how CORS, Socket.io and `TRUST_PROXY=1` use `CLIENT_URL`.
+2. Server ready for production: `build` and `start` scripts in `server/package.json`, and check how CORS, Socket.io and `TRUST_PROXY=1` use `CLIENT_URL`. - Done
 3. Client ready: `VITE_API_URL`, and a rewrite rule that sends every page URL to `index.html` (otherwise refreshing `/deals` gives a 404).
 4. A separate production database: a new Atlas project with its own free cluster and its own database user. Never share anything with the dev database.
 5. Deploy the server, then the client, then set `CLIENT_URL` and `VITE_API_URL` to the real URLs.
@@ -134,6 +134,7 @@ How to use this log:
 - 2026-10-17: Rate limiting finished and tested. Languages finished. Payment terms done. Started using this log.
 - 2026-10-17: Terms page (`Terms.tsx`), public `/terms` route in `App.tsx`, and the required "I agree to the Terms" checkbox in `Signup.tsx`. Step 4 is finished. Still to do: fill in the business name, email and city at the top of `Terms.tsx`, and get the text reviewed by a lawyer.
 - 2026-10-17: Step 5 started (deploy on Render, both server and client). Piece 1 done: new `server/scripts/test-env.mjs`, and 8 test scripts (`deals`, `collab`, `language`, `payment-details`, `payment-records`, `payment-share`, `portfolio`, `socket`) now read the influencer login from `INFLUENCER_EMAIL` / `INFLUENCER_PASSWORD` only, with no defaults. After you pull, set the two variables (see "Test scripts"), and use your own made-up test account. Next: piece 2, the server build/start scripts and CORS check.
+- 2026-10-17: Step 5 piece 2 done. `server/src/index.ts` now checks its settings at startup (stops with a clear message if `MONGODB_URI`, `JWT_SECRET` or `PAYMENT_ENCRYPTION_KEY` is missing or malformed) and allows browser calls only from `CLIENT_URL` (no trailing slash; defaults to `http://localhost:5173`, so if your Vite runs on another port, set `CLIENT_URL` in `server/.env`). `server/package.json` has new `build` (esbuild bundle into `dist/`) and `start` scripts, and `esbuild` as a dev dependency. After you pull, run `npm install` in `server/`. Daily work is still `npm run dev`. Next: piece 3, the client.
 
 ### Friend's entries
 
