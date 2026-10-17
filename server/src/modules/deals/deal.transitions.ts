@@ -156,14 +156,39 @@ export const TERMINAL_STATUSES: DealStatus[] = [
   "DISPUTED",
 ];
 
+// The actions that move money. A barter-only deal never uses them.
+export const PAYMENT_ACTIONS: DealAction[] = [
+  "markAdvanceSent",
+  "confirmAdvance",
+  "rejectAdvance",
+  "markFinalSent",
+  "confirmFinal",
+  "rejectFinal",
+];
+
+// Does money change hands in this deal? (false for barter-only)
+export interface DealTerms {
+  paid: boolean;
+}
+
 // Returns the next status, or null if this actor can't do this action right now
 export function nextStatus(
   current: DealStatus,
   action: DealAction,
   actor: Actor,
+  terms: DealTerms = { paid: true },
 ): DealStatus | null {
   const t = TRANSITIONS[action];
   if (!t || !t.actors.includes(actor) || !t.from.includes(current)) return null;
+
+  if (!terms.paid) {
+    // Barter-only: no payment steps, work starts on acceptance, and the deal
+    // is complete once the brand verifies the post is live
+    if (PAYMENT_ACTIONS.includes(action)) return null;
+    if (action === "accept") return "IN_PROGRESS";
+    if (action === "verifyLink") return "COMPLETED";
+  }
+
   return t.to;
 }
 

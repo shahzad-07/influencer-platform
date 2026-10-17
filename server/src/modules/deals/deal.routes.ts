@@ -1,9 +1,21 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import { z } from "zod";
-import { DealModel, splitPayment, MAX_PAYMENT_ATTEMPTS } from "./deal.model";
+import {
+  DealModel,
+  splitPayment,
+  isPaid,
+  COLLAB_TYPES,
+  MAX_PAYMENT_ATTEMPTS,
+} from "./deal.model";
+import type { CollabType } from "./deal.model";
 import { DEAL_ACTIONS, nextStatus, isNoteRequired } from "./deal.transitions";
-import type { Actor, DealAction, DealStatus } from "./deal.transitions";
+import type {
+  Actor,
+  DealAction,
+  DealStatus,
+  DealTerms,
+} from "./deal.transitions";
 import { UserModel } from "../users/user.model";
 import { ConversationModel } from "../chat/conversation.model";
 import { authenticate, requireRole } from "../auth/auth.middleware";
@@ -39,20 +51,48 @@ const httpUrl = z
     "Must start with http:// or https://",
   );
 
-const createSchema = z.object({
-  influencerId: z
-    .string()
-    .refine((v) => mongoose.isValidObjectId(v), "Invalid id"),
-  title: z.string().trim().min(3).max(120),
-  brief: z.string().trim().min(10).max(3000),
-  amount: z.number().int().min(100), // in paise, so at least Rs 1
-  // 1 to 99, so both the advance and the final payment are real amounts
-  advancePercent: z.number().int().min(1).max(99).default(50),
-  deadline: z.coerce
-    .date()
-    .refine((d) => d.getTime() > Date.now(), "Deadline must be in the future")
-    .optional(),
-});
+const createSchema = z
+  .object({
+    influencerId: z
+      .string()
+      .refine((v) => mongoose.isValidObjectId(v), "Invalid id"),
+    title: z.string().trim().min(3).max(120),
+    brief: z.string().trim().min(10).max(3000),
+    collaborationType: z.enum(COLLAB_TYPES).default("PAID"),
+    amount: z.number().int().min(0).default(0), // in paise
+    advancePercent: z.number().int().min(0).max(100).default(50),
+    barterDescription: z.string().trim().max(500).default(""),
+    deadline: z.coerce
+      .date()
+      .refine((d) => d.getTime() > Date.now(), "Deadline must be in the future")
+      .optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (isPaid(d.collaborationType)) {
+      if (d.amount < 100) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["amount"],
+          message: "Amount must be at least ₹1",
+        });
+      }
+      // 1 to 99, so both the advance and the final payment are real amounts
+      if (d.advancePercent < 1 || d.advancePercent > 99) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["advancePercent"],
+          message: "The advance must be between 1% and 99%",
+        });
+      }
+    }
+    if (d.collaborationType !== "PAID" && d.barterDescription.length < 5) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["barterDescription"],
+        message: "Describe what the influencer gets (at least 5 characters)",
+      });
+    }
+  });
 
 const actionSchema = z.object({
   action: z.enum(DEAL_ACTIONS),
@@ -68,8 +108,18 @@ const actionSchema = z.object({
     .optional(),
 });
 
-function allowedActionsFor(status: DealStatus, actor: Actor): DealAction[] {
-  return DEAL_ACTIONS.filter((a) => nextStatus(status, a, actor) !== null);
+// Deals made before collaboration types existed have no value, and they are paid
+const collabOf = (deal: { collaborationType?: string | null }) =>
+  (deal.collaborationType ?? "PAID") as CollabType;
+
+function allowedActionsFor(
+  status: DealStatus,
+  actor: Actor,
+  terms: DealTerms,
+): DealAction[] {
+  return DEAL_ACTIONS.filter(
+    (a) => nextStatus(status, a, actor, terms) !== null,
+  );
 }
 
 // BRAND: create an offer
@@ -78,9 +128,18 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
   }
-  const { influencerId, title, brief, amount, advancePercent, deadline } =
-    parsed.data;
+  const {
+    influencerId,
+    title,
+    brief,
+    collaborationType,
+    amount,
+    advancePercent,
+    barterDescription,
+    deadline,
+  } = parsed.data;
   const brandId = req.user!.userId;
+  const paid = isPaid(collaborationType);
 
   const isInfluencer = await UserModel.exists({
     _id: influencerId,
@@ -102,8 +161,11 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
     conversation: conversation?._id,
     title,
     brief,
-    amount,
-    advancePercent,
+    collaborationType,
+    // Barter-only deals carry no money, whatever the request said
+    amount: paid ? amount : 0,
+    advancePercent: paid ? advancePercent : 0,
+    barterDescription: collaborationType === "PAID" ? "" : barterDescription,
     deadline,
     statusHistory: [{ status: "OFFERED", by: brandId }],
   });
@@ -135,6 +197,7 @@ router.get("/", async (req, res) => {
           id: String(d._id),
           title: d.title,
           status: d.status,
+          collaborationType: collabOf(d),
           amount: d.amount,
           currency: d.currency,
           deadline: d.deadline,
@@ -168,6 +231,8 @@ router.get("/:id", async (req, res) => {
 
   const actor: Actor =
     String(deal.brand._id) === userId ? "BRAND" : "INFLUENCER";
+  const collaborationType = collabOf(deal);
+  const terms: DealTerms = { paid: isPaid(collaborationType) };
   const payments = deal.payments ?? [];
 
   res.json({
@@ -176,6 +241,8 @@ router.get("/:id", async (req, res) => {
       title: deal.title,
       brief: deal.brief,
       deadline: deal.deadline,
+      collaborationType,
+      barterDescription: deal.barterDescription ?? "",
       amount: deal.amount,
       currency: deal.currency,
       advancePercent: deal.advancePercent,
@@ -208,7 +275,11 @@ router.get("/:id", async (req, res) => {
         by: h.by ? String(h.by) : null,
         note: h.note,
       })),
-      allowedActions: allowedActionsFor(deal.status as DealStatus, actor),
+      allowedActions: allowedActionsFor(
+        deal.status as DealStatus,
+        actor,
+        terms,
+      ),
       createdAt: deal.createdAt,
       updatedAt: deal.updatedAt,
     },
@@ -238,8 +309,9 @@ router.post("/:id/actions", async (req, res) => {
   // Which side am I on? Taken from the deal, never from the request.
   const actor: Actor = String(deal.brand) === userId ? "BRAND" : "INFLUENCER";
   const current = deal.status as DealStatus;
+  const terms: DealTerms = { paid: isPaid(collabOf(deal)) };
 
-  const next = nextStatus(current, action, actor);
+  const next = nextStatus(current, action, actor, terms);
   if (!next) {
     return res
       .status(409)
@@ -353,7 +425,11 @@ router.post("/:id/actions", async (req, res) => {
 
   res.json({
     status: updated.status,
-    allowedActions: allowedActionsFor(updated.status as DealStatus, actor),
+    allowedActions: allowedActionsFor(
+      updated.status as DealStatus,
+      actor,
+      terms,
+    ),
   });
 });
 

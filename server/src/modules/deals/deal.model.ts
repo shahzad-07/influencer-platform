@@ -7,6 +7,13 @@ export const OFFER_VALID_DAYS = 7;
 // How many times a payment can be claimed for one stage (advance or final)
 export const MAX_PAYMENT_ATTEMPTS = 5;
 
+// What the brand offers in return for the content
+export const COLLAB_TYPES = ["PAID", "BARTER", "PAID_AND_BARTER"] as const;
+export type CollabType = (typeof COLLAB_TYPES)[number];
+
+// Does money change hands? (everything except barter-only)
+export const isPaid = (type: CollabType) => type !== "BARTER";
+
 const historySchema = new Schema(
   {
     status: { type: String, enum: DEAL_STATUSES, required: true },
@@ -52,11 +59,26 @@ const dealSchema = new Schema(
     brief: { type: String, required: true, trim: true, maxlength: 3000 },
     deadline: { type: Date },
 
-    // Money in paise (Rs 5,000 = 500000), always whole numbers
+    // Paid, barter, or both. Deals made before this field existed are paid.
+    collaborationType: {
+      type: String,
+      enum: COLLAB_TYPES,
+      default: "PAID",
+      required: true,
+    },
+    // What the influencer gets besides (or instead of) money, e.g. "Dinner for two"
+    barterDescription: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: "",
+    },
+
+    // Money in paise (Rs 5,000 = 500000), always whole numbers. Zero for barter-only.
     amount: {
       type: Number,
       required: true,
-      min: 1,
+      min: 0,
       validate: Number.isInteger,
     },
     currency: { type: String, default: "INR" },
