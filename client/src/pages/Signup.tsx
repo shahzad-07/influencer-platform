@@ -1,14 +1,19 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import type { Role } from "../context/AuthContext";
+import SiteHeader from "../components/SiteHeader";
 
 export default function Signup() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
 
-  const [role, setRole] = useState<Role>("BRAND");
+  // The landing page links here with ?role=brand or ?role=creator
+  const [role, setRole] = useState<Role>(
+    params.get("role") === "creator" ? "INFLUENCER" : "BRAND",
+  );
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,80 +43,102 @@ export default function Signup() {
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: "40px auto", padding: 16 }}>
-      <h1>Create your account</h1>
+    <>
+      <SiteHeader />
+      <main className="page-narrow">
+        <div className="card auth-card stack">
+          <h1>Create your account</h1>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <button
-          type="button"
-          onClick={() => setRole("BRAND")}
-          aria-pressed={role === "BRAND"}
-          style={{ flex: 1, fontWeight: role === "BRAND" ? "bold" : "normal" }}
-        >
-          I'm a Brand
-        </button>
-        <button
-          type="button"
-          onClick={() => setRole("INFLUENCER")}
-          aria-pressed={role === "INFLUENCER"}
-          style={{
-            flex: 1,
-            fontWeight: role === "INFLUENCER" ? "bold" : "normal",
-          }}
-        >
-          I'm an Influencer
-        </button>
-      </div>
+          <div className="switch switch-full" role="group" aria-label="I am a">
+            <button
+              type="button"
+              onClick={() => setRole("BRAND")}
+              aria-pressed={role === "BRAND"}
+            >
+              I'm a brand
+            </button>
+            <button
+              type="button"
+              onClick={() => setRole("INFLUENCER")}
+              aria-pressed={role === "INFLUENCER"}
+            >
+              I'm a creator
+            </button>
+          </div>
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-        <input
-          placeholder={role === "BRAND" ? "Brand / company name" : "Your name"}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password (min 8 characters)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={8}
-        />
+          <form className="stack" onSubmit={handleSubmit}>
+            <div className="field">
+              <label htmlFor="name">
+                {role === "BRAND" ? "Brand or company name" : "Your name"}
+              </label>
+              <input
+                id="name"
+                autoComplete={role === "BRAND" ? "organization" : "name"}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+              <span className="hint">At least 8 characters</span>
+            </div>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            required
-            style={{ marginTop: 3 }}
-          />
-          <span>
-            I agree to the{" "}
-            <Link to="/terms" target="_blank" rel="noopener noreferrer">
-              Terms
-            </Link>
-          </span>
-        </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                required
+              />
+              <span>
+                I agree to the{" "}
+                <Link to="/terms" target="_blank" rel="noopener noreferrer">
+                  Terms
+                </Link>
+              </span>
+            </label>
 
-        {error && <p style={{ color: "crimson", margin: 0 }}>{error}</p>}
+            {error && (
+              <p className="alert" role="alert">
+                {error}
+              </p>
+            )}
 
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Creating account..." : "Sign up"}
-        </button>
-      </form>
+            <button
+              className="btn btn-primary btn-block"
+              type="submit"
+              disabled={submitting}
+            >
+              {submitting ? "Creating account..." : "Sign up"}
+            </button>
+          </form>
 
-      <p>
-        Already have an account? <Link to="/login">Log in</Link>
-      </p>
-    </div>
+          <p className="auth-foot">
+            Already have an account? <Link to="/login">Log in</Link>
+          </p>
+        </div>
+      </main>
+    </>
   );
 }

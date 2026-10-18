@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import SiteHeader from "../components/SiteHeader";
 
 export default function Login() {
   const { login } = useAuth();
@@ -27,35 +28,56 @@ export default function Login() {
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: "40px auto", padding: 16 }}>
-      <h1>Log in</h1>
+    <>
+      <SiteHeader />
+      <main className="page-narrow">
+        <div className="card auth-card stack">
+          <h1>Log in</h1>
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+          <form className="stack" onSubmit={handleSubmit}>
+            <div className="field">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
 
-        {error && <p style={{ color: "crimson", margin: 0 }}>{error}</p>}
+            {error && (
+              <p className="alert" role="alert">
+                {error}
+              </p>
+            )}
 
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Logging in..." : "Log in"}
-        </button>
-      </form>
+            <button
+              className="btn btn-primary btn-block"
+              type="submit"
+              disabled={submitting}
+            >
+              {submitting ? "Logging in..." : "Log in"}
+            </button>
+          </form>
 
-      <p>
-        New here? <Link to="/signup">Create an account</Link>
-      </p>
-    </div>
+          <p className="auth-foot">
+            New here? <Link to="/signup">Create an account</Link>
+          </p>
+        </div>
+      </main>
+    </>
   );
 }

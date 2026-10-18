@@ -1,38 +1,57 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import AppLayout from "../components/AppLayout";
 
 export default function InfluencerDashboard() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  function handleLogout() {
-    logout();
-    navigate("/login");
-  }
+  const { user } = useAuth();
 
   return (
-    <div style={{ maxWidth: 800, margin: "40px auto", padding: 16 }}>
-      <h1>Influencer Dashboard</h1>
-      <p>Welcome, {user?.name}!</p>
-      <p>
-        <Link to="/influencer/profile">Edit my profile</Link>
-      </p>
-      <p>
-        <Link to="/influencer/pricing">Manage my pricing</Link>
-      </p>
-      <p>
-        <Link to="/influencer/payment-details">Payment details</Link>
-      </p>
-      <p>
-        <Link to="/deals">My deals</Link>
-      </p>
-      <p>
-        <Link to="/influencer/brands">Find brands</Link>
-      </p>
-      <p>
-        <Link to="/messages">Messages</Link>
-      </p>
-      <button onClick={handleLogout}>Log out</button>
-    </div>
+    <AppLayout>
+      <div className="stack">
+        <div>
+          <h1>Welcome, {user?.name}</h1>
+          <p className="muted">What would you like to do today?</p>
+        </div>
+
+        <ul className="link-list">
+          <li>
+            <Link to="/deals">
+              My deals
+              <small>Offers, drafts and payments</small>
+            </Link>
+          </li>
+          <li>
+            <Link to="/messages">
+              Messages
+              <small>Chat with brands</small>
+            </Link>
+          </li>
+          <li>
+            <Link to="/influencer/brands">
+              Find brands
+              <small>Browse brands and message them first</small>
+            </Link>
+          </li>
+          <li>
+            <Link to="/influencer/profile">
+              My profile
+              <small>Your niches, languages and past work</small>
+            </Link>
+          </li>
+          <li>
+            <Link to="/influencer/pricing">
+              My rates
+              <small>Only brands can see these</small>
+            </Link>
+          </li>
+          <li>
+            <Link to="/influencer/payment-details">
+              Payment details
+              <small>Saved safely, shared only when you choose</small>
+            </Link>
+          </li>
+        </ul>
+      </div>
+    </AppLayout>
   );
 }

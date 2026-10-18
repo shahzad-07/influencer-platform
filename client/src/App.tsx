@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Terms from "./pages/Terms";
@@ -19,11 +20,11 @@ import CreateOffer from "./pages/CreateOffer";
 import Deals from "./pages/Deals";
 import DealDetail from "./pages/DealDetail";
 
-// "/" sends people to the right place
+// "/" shows the public home page to visitors and sends logged-in people to their dashboard
 function Home() {
   const { user, loading } = useAuth();
-  if (loading) return <p style={{ padding: 16 }}>Loading...</p>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (loading) return <p className="page muted">Loading...</p>;
+  if (!user) return <Landing />;
   return (
     <Navigate to={user.role === "BRAND" ? "/brand" : "/influencer"} replace />
   );
