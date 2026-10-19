@@ -55,6 +55,18 @@ checkSettings();
 
 const app = express();
 
+// TEMPORARY, REMOVE AFTER MEASURING: open /api/health?measure=1 once and read
+// the log. It prints only how many proxies added their address, never an address.
+app.use((req, _res, next) => {
+  if (req.path === "/api/health" && req.query.measure === "1") {
+    const forwarded = req.headers["x-forwarded-for"];
+    const count =
+      typeof forwarded === "string" ? forwarded.split(",").length : 0;
+    console.log(`MEASURE proxy addresses in X-Forwarded-For: ${count}`);
+  }
+  next();
+});
+
 // Behind a hosting proxy, set TRUST_PROXY=1 so that req.ip is the visitor's
 // address and not the proxy's. Leave it unset when running on your own computer.
 const proxyHops = Number(process.env.TRUST_PROXY);
