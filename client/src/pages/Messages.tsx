@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { getSocket } from "../lib/socket";
 import { useAuth } from "../context/AuthContext";
+import AppLayout from "../components/AppLayout";
 
 interface ConversationItem {
   id: string;
@@ -161,140 +162,110 @@ export default function Messages() {
   }
 
   const activeConversation = conversations.find((c) => c.id === conversationId);
-  const dashboardPath = user?.role === "BRAND" ? "/brand" : "/influencer";
+  const isBrand = user?.role === "BRAND";
 
   return (
-    <div style={{ maxWidth: 900, margin: "24px auto", padding: 16 }}>
-      <p>
-        <Link to={dashboardPath}>← Back to dashboard</Link>
-      </p>
-      <h1>Messages</h1>
+    <AppLayout>
+      <div className={conversationId ? "chat-wrap chat-open" : "chat-wrap"}>
+        <h1 className="chat-title">Messages</h1>
 
-      <div style={{ display: "flex", gap: 16, height: "65vh" }}>
-        {/* Left: conversation list */}
-        <div
-          style={{
-            width: 260,
-            overflowY: "auto",
-            borderRight: "1px solid #ccc",
-            paddingRight: 8,
-          }}
-        >
-          {conversations.length === 0 && (
-            <p style={{ color: "gray" }}>No conversations yet.</p>
-          )}
-          {conversations.map((c) => (
-            <Link
-              key={c.id}
-              to={`/messages/${c.id}`}
-              style={{
-                display: "block",
-                padding: 8,
-                marginBottom: 4,
-                borderRadius: 6,
-                textDecoration: "none",
-                background: c.id === conversationId ? "#e8f0fe" : "transparent",
-                color: "#222",
-              }}
-            >
-              <strong>{c.otherUser.name}</strong>
-              <div style={{ fontSize: 13, color: "gray" }}>
-                {c.lastMessageText || "No messages yet"}
+        <div className="chat">
+          {/* Conversation list */}
+          <aside className="chat-list">
+            {conversations.length === 0 && (
+              <div className="chat-empty">
+                <p className="muted">No conversations yet.</p>
+                <p>
+                  <Link
+                    to={isBrand ? "/brand/influencers" : "/influencer/brands"}
+                  >
+                    {isBrand ? "Find a creator" : "Find a brand"}
+                  </Link>{" "}
+                  to start one.
+                </p>
               </div>
-            </Link>
-          ))}
-        </div>
-
-        {/* Right: open chat */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            minWidth: 0,
-          }}
-        >
-          {!conversationId ? (
-            <p style={{ color: "gray" }}>
-              Select a conversation to start chatting.
-            </p>
-          ) : (
-            <>
-              <h3 style={{ margin: "0 0 8px" }}>
-                {activeConversation?.otherUser.name ?? "Chat"}
-              </h3>
-
-              <div
-                style={{
-                  flex: 1,
-                  overflowY: "auto",
-                  border: "1px solid #ccc",
-                  borderRadius: 8,
-                  padding: 8,
-                }}
+            )}
+            {conversations.map((c) => (
+              <Link
+                key={c.id}
+                to={`/messages/${c.id}`}
+                className={
+                  c.id === conversationId ? "chat-item active" : "chat-item"
+                }
               >
-                {messages.length === 0 && (
-                  <p style={{ color: "gray" }}>No messages yet. Say hello!</p>
-                )}
-                {messages.map((m) => {
-                  const mine = m.sender === user?.id;
-                  return (
-                    <div
-                      key={m.id}
-                      style={{
-                        display: "flex",
-                        justifyContent: mine ? "flex-end" : "flex-start",
-                      }}
-                    >
+                <strong>{c.otherUser.name}</strong>
+                <small>{c.lastMessageText || "No messages yet"}</small>
+              </Link>
+            ))}
+          </aside>
+
+          {/* Open chat */}
+          <section className="chat-pane">
+            {!conversationId ? (
+              <p className="muted chat-empty">
+                Select a conversation to start chatting.
+              </p>
+            ) : (
+              <>
+                <div className="chat-head">
+                  <Link className="chat-back" to="/messages">
+                    All chats
+                  </Link>
+                  <h2>{activeConversation?.otherUser.name ?? "Chat"}</h2>
+                </div>
+
+                <div className="chat-log">
+                  {messages.length === 0 && (
+                    <p className="muted">No messages yet. Say hello!</p>
+                  )}
+                  {messages.map((m) => {
+                    const mine = m.sender === user?.id;
+                    return (
                       <div
-                        style={{
-                          maxWidth: "75%",
-                          margin: "4px 0",
-                          padding: "6px 10px",
-                          borderRadius: 12,
-                          background: mine ? "#d1e7ff" : "#eee",
-                          color: "#222",
-                          whiteSpace: "pre-wrap",
-                          overflowWrap: "anywhere",
-                        }}
+                        key={m.id}
+                        className={mine ? "bubble mine" : "bubble"}
                       >
                         {m.text}
-                        <div style={{ fontSize: 11, color: "gray" }}>
+                        <time dateTime={m.createdAt}>
                           {new Date(m.createdAt).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
-                        </div>
+                        </time>
                       </div>
-                    </div>
-                  );
-                })}
-                <div ref={bottomRef} />
-              </div>
+                    );
+                  })}
+                  <div ref={bottomRef} />
+                </div>
 
-              {error && (
-                <p style={{ color: "crimson", margin: "8px 0 0" }}>{error}</p>
-              )}
+                {error && (
+                  <p className="alert" role="alert">
+                    {error}
+                  </p>
+                )}
 
-              <form
-                onSubmit={handleSend}
-                style={{ display: "flex", gap: 8, marginTop: 8 }}
-              >
-                <input
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  placeholder="Type a message..."
-                  maxLength={2000}
-                  style={{ flex: 1 }}
-                />
-                <button type="submit" disabled={sending || !text.trim()}>
-                  Send
-                </button>
-              </form>
-            </>
-          )}
+                <form className="chat-form" onSubmit={handleSend}>
+                  <input
+                    className="input"
+                    aria-label="Message"
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder="Type a message..."
+                    maxLength={2000}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    type="submit"
+                    disabled={sending || !text.trim()}
+                  >
+                    Send
+                  </button>
+                </form>
+              </>
+            )}
+          </section>
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 }
