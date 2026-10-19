@@ -55,22 +55,9 @@ checkSettings();
 
 const app = express();
 
-// TEMPORARY, REMOVE AFTER MEASURING: open /api/health?measure=1 once. The page
-// answers with only a number: how many proxies added their address to
-// X-Forwarded-For. It never shows an address.
-app.use((req, res, next) => {
-  if (req.path === "/api/health" && req.query.measure === "1") {
-    const forwarded = req.headers["x-forwarded-for"];
-    const count =
-      typeof forwarded === "string" ? forwarded.split(",").length : 0;
-    res.json({ proxyAddresses: count });
-    return;
-  }
-  next();
-});
-
-// Behind a hosting proxy, set TRUST_PROXY=1 so that req.ip is the visitor's
-// address and not the proxy's. Leave it unset when running on your own computer.
+// Behind a hosting proxy, set TRUST_PROXY to the number of proxies in front of
+// the server, so that req.ip is the visitor's address and not the proxy's.
+// On Render it is 3 (measured). Leave it unset when running on your own computer.
 const proxyHops = Number(process.env.TRUST_PROXY);
 if (Number.isInteger(proxyHops) && proxyHops > 0) {
   app.set("trust proxy", proxyHops);
