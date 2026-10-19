@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import AppLayout from "../components/AppLayout";
 
 interface SavedDetails {
   accountHolderName: string;
@@ -103,135 +103,146 @@ export default function PaymentDetails() {
     }
   }
 
-  if (loading) return <p style={{ padding: 16 }}>Loading...</p>;
+  if (loading) {
+    return (
+      <AppLayout>
+        <p className="muted">Loading...</p>
+      </AppLayout>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto", padding: 16 }}>
-      <p>
-        <Link to="/influencer">← Back to dashboard</Link>
-      </p>
-      <h1>Payment details</h1>
-      <p style={{ color: "gray" }}>
-        These are private. A brand sees them only when you click{" "}
-        <strong>Share</strong> on a deal, and only for 6 hours. You can end a
-        share early.
-      </p>
+    <AppLayout>
+      <div className="stack form-wide">
+        <div>
+          <h1>Payment details</h1>
+          <p className="muted">
+            These are private. A brand sees them only when you click{" "}
+            <strong>Share</strong> on a deal, and only for 6 hours. You can end
+            a share early.
+          </p>
+        </div>
 
-      {saved && (
-        <div
-          style={{
-            border: "1px solid #ccc",
-            borderRadius: 8,
-            padding: 12,
-            margin: "12px 0",
-          }}
-        >
-          <strong>Saved details</strong>
-          <div>Name: {saved.accountHolderName}</div>
-          {saved.bankName && <div>Bank: {saved.bankName}</div>}
-          {saved.accountNumberLast4 && (
-            <div>Account: ending {saved.accountNumberLast4}</div>
-          )}
-          {saved.ifsc && <div>IFSC: {saved.ifsc}</div>}
-          {saved.upiId && <div>UPI ID: {saved.upiId}</div>}
-          <div style={{ color: "gray", fontSize: 13 }}>
-            Last updated {new Date(saved.updatedAt).toLocaleString()}
+        {saved && (
+          <section className="card stack">
+            <h2 className="h-sm">Saved details</h2>
+            <div>Name: {saved.accountHolderName}</div>
+            {saved.bankName && <div>Bank: {saved.bankName}</div>}
+            {saved.accountNumberLast4 && (
+              <div>Account: ending {saved.accountNumberLast4}</div>
+            )}
+            {saved.ifsc && <div>IFSC: {saved.ifsc}</div>}
+            {saved.upiId && <div>UPI ID: {saved.upiId}</div>}
+            <div className="muted small">
+              Last updated {new Date(saved.updatedAt).toLocaleString()}
+            </div>
+          </section>
+        )}
+
+        <form className="stack" onSubmit={handleSubmit} autoComplete="off">
+          <h2 className="h-sm">{saved ? "Update details" : "Add details"}</h2>
+
+          <div className="field">
+            <label htmlFor="holder">
+              Account holder name (as in your bank)
+            </label>
+            <input
+              id="holder"
+              value={holderName}
+              onChange={(e) => setHolderName(e.target.value)}
+              maxLength={100}
+              required
+              autoComplete="off"
+            />
           </div>
-        </div>
-      )}
 
-      <h2>{saved ? "Update details" : "Add details"}</h2>
-      <form
-        onSubmit={handleSubmit}
-        style={{ display: "grid", gap: 12 }}
-        autoComplete="off"
-      >
-        <label>
-          Account holder name (as in your bank)
-          <input
-            value={holderName}
-            onChange={(e) => setHolderName(e.target.value)}
-            maxLength={100}
-            required
-            autoComplete="off"
-            style={{ width: "100%" }}
-          />
-        </label>
+          <div className="field">
+            <label htmlFor="bank">Bank name (optional)</label>
+            <input
+              id="bank"
+              value={bankName}
+              onChange={(e) => setBankName(e.target.value)}
+              maxLength={100}
+              autoComplete="off"
+            />
+          </div>
 
-        <label>
-          Bank name (optional)
-          <input
-            value={bankName}
-            onChange={(e) => setBankName(e.target.value)}
-            maxLength={100}
-            autoComplete="off"
-            style={{ width: "100%" }}
-          />
-        </label>
+          <div className="field">
+            <label htmlFor="account">Account number</label>
+            <input
+              id="account"
+              value={accountNumber}
+              onChange={(e) =>
+                setAccountNumber(e.target.value.replace(/\D/g, ""))
+              }
+              placeholder={
+                saved?.accountNumberLast4
+                  ? `Saved, ending ${saved.accountNumberLast4}. Type it again to keep it.`
+                  : "9 to 18 digits"
+              }
+              inputMode="numeric"
+              maxLength={18}
+              autoComplete="off"
+            />
+          </div>
 
-        <label>
-          Account number
-          <input
-            value={accountNumber}
-            onChange={(e) =>
-              setAccountNumber(e.target.value.replace(/\D/g, ""))
-            }
-            placeholder={
-              saved?.accountNumberLast4
-                ? `Saved, ending ${saved.accountNumberLast4}. Type it again to keep it.`
-                : "9 to 18 digits"
-            }
-            inputMode="numeric"
-            maxLength={18}
-            autoComplete="off"
-            style={{ width: "100%" }}
-          />
-        </label>
+          <div className="field">
+            <label htmlFor="ifsc">IFSC code</label>
+            <input
+              id="ifsc"
+              value={ifsc}
+              onChange={(e) => setIfsc(e.target.value.toUpperCase())}
+              placeholder="HDFC0001234"
+              maxLength={11}
+              autoComplete="off"
+            />
+          </div>
 
-        <label>
-          IFSC code
-          <input
-            value={ifsc}
-            onChange={(e) => setIfsc(e.target.value.toUpperCase())}
-            placeholder="HDFC0001234"
-            maxLength={11}
-            autoComplete="off"
-            style={{ width: "100%" }}
-          />
-        </label>
+          <div className="field">
+            <label htmlFor="upi">UPI ID</label>
+            <input
+              id="upi"
+              value={upiId}
+              onChange={(e) => setUpiId(e.target.value.trim())}
+              placeholder="name@bank"
+              maxLength={100}
+              autoComplete="off"
+              autoCapitalize="none"
+            />
+          </div>
 
-        <label>
-          UPI ID
-          <input
-            value={upiId}
-            onChange={(e) => setUpiId(e.target.value.trim())}
-            placeholder="name@bank"
-            maxLength={100}
-            autoComplete="off"
-            autoCapitalize="none"
-            style={{ width: "100%" }}
-          />
-        </label>
+          <p className="muted">
+            Provide a UPI ID, or an account number with its IFSC code (or both).
+            Saving replaces everything above.
+          </p>
 
-        <p style={{ color: "gray", margin: 0 }}>
-          Provide a UPI ID, or an account number with its IFSC code (or both).
-          Saving replaces everything above.
-        </p>
-
-        {error && <p style={{ color: "crimson", margin: 0 }}>{error}</p>}
-        {message && <p style={{ color: "green", margin: 0 }}>{message}</p>}
-
-        <div style={{ display: "flex", gap: 8 }}>
-          <button type="submit" disabled={saving}>
-            {saving ? "Saving..." : "Save details"}
-          </button>
-          {saved && (
-            <button type="button" onClick={handleDelete}>
-              Delete my details
-            </button>
+          {error && (
+            <p className="alert" role="alert">
+              {error}
+            </p>
           )}
-        </div>
-      </form>
-    </div>
+          {message && (
+            <p className="success" role="status">
+              {message}
+            </p>
+          )}
+
+          <div className="btn-row">
+            <button className="btn btn-primary" type="submit" disabled={saving}>
+              {saving ? "Saving..." : "Save details"}
+            </button>
+            {saved && (
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={handleDelete}
+              >
+                Delete my details
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    </AppLayout>
   );
 }

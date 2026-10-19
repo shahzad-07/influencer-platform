@@ -5,6 +5,7 @@ import { api } from "../lib/api";
 import { formatRupees, hasMoney } from "../lib/format";
 import type { CollabType } from "../lib/format";
 import PaymentTerms from "../components/PaymentTerms";
+import AppLayout from "../components/AppLayout";
 
 interface Price {
   serviceType: string;
@@ -21,7 +22,7 @@ const TYPE_OPTIONS: { value: CollabType; label: string; hint: string }[] = [
   },
   {
     value: "PAID_AND_BARTER",
-    label: "Paid + Barter",
+    label: "Paid + barter",
     hint: "Money and a product or service",
   },
 ];
@@ -61,7 +62,7 @@ export default function CreateOffer() {
       .catch((err) => {
         if (!cancelled)
           setError(
-            err instanceof Error ? err.message : "Could not load influencer",
+            err instanceof Error ? err.message : "Could not load creator",
           );
       })
       .finally(() => {
@@ -110,7 +111,7 @@ export default function CreateOffer() {
       return;
     }
     if (hasBarter && barterDescription.trim().length < 5) {
-      setError("Describe what the influencer gets (at least 5 characters).");
+      setError("Describe what the creator gets (at least 5 characters).");
       return;
     }
 
@@ -140,165 +141,186 @@ export default function CreateOffer() {
     }
   }
 
-  if (loading) return <p style={{ padding: 16 }}>Loading...</p>;
+  if (loading) {
+    return (
+      <AppLayout>
+        <p className="muted">Loading...</p>
+      </AppLayout>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto", padding: 16 }}>
+    <AppLayout>
       <p>
-        <Link to={`/brand/influencers/${influencerId}`}>← Back to profile</Link>
+        <Link to={`/brand/influencers/${influencerId}`}>Back to profile</Link>
       </p>
-      <h1>Make an offer{name ? ` to ${name}` : ""}</h1>
 
-      {prices.length > 0 && (
-        <div
-          style={{
-            border: "1px solid #ccc",
-            borderRadius: 8,
-            padding: 12,
-            margin: "12px 0",
-          }}
-        >
-          <strong>Their listed prices</strong>
-          <ul style={{ margin: "4px 0 0" }}>
-            {prices.map((p) => (
-              <li key={p.serviceType}>
-                {p.serviceType.replaceAll("_", " ")}: {formatRupees(p.amount)}
-                {p.description && (
-                  <span style={{ color: "gray" }}> ({p.description})</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <div className="stack form-wide">
+        <h1>Make an offer{name ? ` to ${name}` : ""}</h1>
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-        <label>
-          Title
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Instagram reel for our new menu"
-            minLength={3}
-            maxLength={120}
-            required
-            style={{ width: "100%" }}
-          />
-        </label>
+        {prices.length > 0 && (
+          <section className="card">
+            <h2 className="h-sm">Their listed rates</h2>
+            <div>
+              {prices.map((p) => (
+                <div key={p.serviceType} className="price-row">
+                  <div>
+                    {p.serviceType.replaceAll("_", " ")}
+                    {p.description && (
+                      <div className="muted small">{p.description}</div>
+                    )}
+                  </div>
+                  <strong>{formatRupees(p.amount)}</strong>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
-        <label>
-          Brief: what do you want them to create?
-          <textarea
-            value={brief}
-            onChange={(e) => setBrief(e.target.value)}
-            minLength={10}
-            maxLength={3000}
-            rows={6}
-            required
-            style={{ width: "100%" }}
-          />
-        </label>
-
-        <fieldset style={{ border: "1px solid #ccc", borderRadius: 8 }}>
-          <legend>What are you offering?</legend>
-          <div style={{ display: "grid", gap: 6 }}>
-            {TYPE_OPTIONS.map((o) => (
-              <label key={o.value}>
-                <input
-                  type="radio"
-                  name="collabType"
-                  value={o.value}
-                  checked={collabType === o.value}
-                  onChange={() => pickType(o.value)}
-                />{" "}
-                <strong>{o.label}</strong>
-                <span style={{ color: "gray" }}> - {o.hint}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        {hasBarter && (
-          <label>
-            {paid
-              ? "What else do they get besides the money?"
-              : "What will they get in return?"}
-            <textarea
-              value={barterDescription}
-              onChange={(e) => setBarterDescription(e.target.value)}
-              placeholder="e.g. Dinner for two at our restaurant, worth about ₹3,000"
-              minLength={5}
-              maxLength={500}
-              rows={3}
+        <form className="stack" onSubmit={handleSubmit}>
+          <div className="field">
+            <label htmlFor="title">Title</label>
+            <input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Instagram reel for our new menu"
+              minLength={3}
+              maxLength={120}
               required
-              style={{ width: "100%" }}
             />
-          </label>
-        )}
+          </div>
 
-        {paid && (
-          <>
-            <label>
-              Total amount (₹)
-              <input
-                type="number"
-                min={1}
-                step="0.01"
-                value={rupees}
-                onChange={(e) => setRupees(e.target.value)}
-                required
-                style={{ width: "100%" }}
-              />
+          <div className="field">
+            <label htmlFor="brief">
+              Brief: what do you want them to create?
             </label>
+            <textarea
+              id="brief"
+              value={brief}
+              onChange={(e) => setBrief(e.target.value)}
+              minLength={10}
+              maxLength={3000}
+              rows={6}
+              required
+            />
+          </div>
 
-            <label>
-              Advance (%) paid before work starts
-              <input
-                type="number"
-                min={1}
-                max={99}
-                step={1}
-                value={advancePercent}
-                onChange={(e) => setAdvancePercent(e.target.value)}
+          <fieldset className="group">
+            <legend>What are you offering?</legend>
+            <div className="choices">
+              {TYPE_OPTIONS.map((o) => (
+                <label key={o.value} className="choice">
+                  <input
+                    type="radio"
+                    name="collabType"
+                    value={o.value}
+                    checked={collabType === o.value}
+                    onChange={() => pickType(o.value)}
+                  />
+                  <span>
+                    <strong>{o.label}</strong>
+                    <small>{o.hint}</small>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {hasBarter && (
+            <div className="field">
+              <label htmlFor="barter">
+                {paid
+                  ? "What else do they get besides the money?"
+                  : "What will they get in return?"}
+              </label>
+              <textarea
+                id="barter"
+                value={barterDescription}
+                onChange={(e) => setBarterDescription(e.target.value)}
+                placeholder="e.g. Dinner for two at our restaurant, worth about ₹3,000"
+                minLength={5}
+                maxLength={500}
+                rows={3}
                 required
-                style={{ width: "100%" }}
               />
-            </label>
-          </>
-        )}
+            </div>
+          )}
 
-        <label>
-          Deadline (optional)
-          <input
-            type="date"
-            min={tomorrow}
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            style={{ width: "100%" }}
+          {paid && (
+            <div className="two">
+              <div className="field">
+                <label htmlFor="amount">Total amount (₹)</label>
+                <input
+                  id="amount"
+                  type="number"
+                  inputMode="decimal"
+                  min={1}
+                  step="0.01"
+                  value={rupees}
+                  onChange={(e) => setRupees(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="advance">
+                  Advance (%) paid before work starts
+                </label>
+                <input
+                  id="advance"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={99}
+                  step={1}
+                  value={advancePercent}
+                  onChange={(e) => setAdvancePercent(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="field">
+            <label htmlFor="deadline">Deadline (optional)</label>
+            <input
+              id="deadline"
+              type="date"
+              min={tomorrow}
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+            />
+          </div>
+
+          {/* The same terms the creator will see before accepting */}
+          <PaymentTerms
+            collaborationType={collabType}
+            barterDescription={barterDescription}
+            amounts={
+              paid && validAmount && validPct
+                ? { advance, final, advancePercent: pct }
+                : undefined
+            }
           />
-        </label>
 
-        {/* The same terms the influencer will see before accepting */}
-        <PaymentTerms
-          collaborationType={collabType}
-          barterDescription={barterDescription}
-          amounts={
-            paid && validAmount && validPct
-              ? { advance, final, advancePercent: pct }
-              : undefined
-          }
-        />
+          <p className="muted">The offer stays open for 7 days.</p>
 
-        <p style={{ color: "gray", margin: 0 }}>
-          The offer stays open for 7 days.
-        </p>
+          {error && (
+            <p className="alert" role="alert">
+              {error}
+            </p>
+          )}
 
-        {error && <p style={{ color: "crimson", margin: 0 }}>{error}</p>}
-
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Sending..." : "Send offer"}
-        </button>
-      </form>
-    </div>
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting ? "Sending..." : "Send offer"}
+          </button>
+        </form>
+      </div>
+    </AppLayout>
   );
 }

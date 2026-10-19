@@ -8,6 +8,7 @@ import {
   statusLabel,
 } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
+import AppLayout from "../components/AppLayout";
 
 interface DealItem {
   id: string;
@@ -20,14 +21,6 @@ interface DealItem {
   updatedAt: string;
   otherUser: { id: string; name: string };
 }
-
-const pill = {
-  background: "#eee",
-  color: "#333",
-  borderRadius: 12,
-  padding: "2px 8px",
-  fontSize: 12,
-} as const;
 
 export default function Deals() {
   const { user } = useAuth();
@@ -47,74 +40,58 @@ export default function Deals() {
   }, []);
 
   return (
-    <div style={{ maxWidth: 800, margin: "40px auto", padding: 16 }}>
-      <p>
-        <Link to={isBrand ? "/brand" : "/influencer"}>← Back to dashboard</Link>
-      </p>
-      <h1>My deals</h1>
+    <AppLayout>
+      <div className="stack form-wide">
+        <h1>My deals</h1>
 
-      {loading && <p>Loading...</p>}
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+        {loading && <p className="muted">Loading...</p>}
+        {error && (
+          <p className="alert" role="alert">
+            {error}
+          </p>
+        )}
 
-      {!loading && !error && deals.length === 0 && (
-        <p>
-          No deals yet.{" "}
-          {isBrand ? (
-            <Link to="/brand/influencers">
-              Find an influencer and make an offer.
+        {!loading && !error && deals.length === 0 && (
+          <p className="muted">
+            No deals yet.{" "}
+            {isBrand ? (
+              <Link to="/brand/influencers">
+                Find a creator and make an offer.
+              </Link>
+            ) : (
+              "Offers from brands will appear here."
+            )}
+          </p>
+        )}
+
+        <div className="stack">
+          {deals.map((d) => (
+            <Link key={d.id} to={`/deals/${d.id}`} className="deal">
+              <div className="deal-top">
+                <strong>{d.title}</strong>
+                {/* Barter-only has no money, so show the type instead of ₹0 */}
+                <strong>
+                  {isPaidType(d.collaborationType)
+                    ? formatRupees(d.amount)
+                    : "Barter"}
+                </strong>
+              </div>
+              <div className="muted">
+                {isBrand ? "Creator" : "Brand"}: {d.otherUser.name}
+              </div>
+              <div className="deal-meta">
+                <span className="tag">{statusLabel(d.status)}</span>
+                <span className="tag">{collabLabel(d.collaborationType)}</span>
+                {d.deadline && (
+                  <span className="muted small">
+                    Deadline {new Date(d.deadline).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
             </Link>
-          ) : (
-            "Offers from brands will appear here."
-          )}
-        </p>
-      )}
-
-      <div style={{ display: "grid", gap: 12 }}>
-        {deals.map((d) => (
-          <Link
-            key={d.id}
-            to={`/deals/${d.id}`}
-            style={{
-              display: "block",
-              border: "1px solid #ccc",
-              borderRadius: 8,
-              padding: 12,
-              textDecoration: "none",
-              color: "inherit",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 8,
-              }}
-            >
-              <strong>{d.title}</strong>
-              {/* Barter-only has no money, so show the type instead of ₹0 */}
-              <span>
-                {isPaidType(d.collaborationType)
-                  ? formatRupees(d.amount)
-                  : "Barter"}
-              </span>
-            </div>
-            <div style={{ color: "gray", marginTop: 4 }}>
-              {isBrand ? "Influencer" : "Brand"}: {d.otherUser.name}
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <span style={pill}>{statusLabel(d.status)}</span>
-              <span style={{ ...pill, marginLeft: 6 }}>
-                {collabLabel(d.collaborationType)}
-              </span>
-              {d.deadline && (
-                <span style={{ color: "gray", marginLeft: 8, fontSize: 13 }}>
-                  Deadline {new Date(d.deadline).toLocaleDateString()}
-                </span>
-              )}
-            </div>
-          </Link>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
+    </AppLayout>
   );
 }

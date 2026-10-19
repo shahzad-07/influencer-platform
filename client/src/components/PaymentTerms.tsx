@@ -22,24 +22,17 @@ export default function PaymentTerms({
   const hasBarter = (collaborationType ?? "PAID") !== "PAID";
 
   return (
-    <div
-      style={{
-        border: "1px solid #ccc",
-        borderRadius: 8,
-        padding: 12,
-        margin: "16px 0",
-      }}
-    >
+    <div className="terms">
       {paid && (
         <>
           <strong>Payment terms</strong>
-          <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>
+          <ul>
             <li>
               Advance
               {amounts
                 ? ` (${amounts.advancePercent}%): ${formatRupees(amounts.advance)}`
                 : ""}
-              . Due right after the influencer accepts, before any work starts.
+              . Due right after the creator accepts, before any work starts.
             </li>
             <li>
               Final
@@ -47,10 +40,10 @@ export default function PaymentTerms({
               brand verifies that the post is live.
             </li>
             <li>
-              Payments are made directly between the brand and the influencer,
+              Payments are made directly between the brand and the creator,
               outside this app (for example by UPI or bank transfer). The app
               does not hold or move any money. It only records them: the brand
-              enters a payment reference (UTR) after paying, and the influencer
+              enters a payment reference (UTR) after paying, and the creator
               confirms that it arrived.
             </li>
           </ul>
@@ -58,19 +51,15 @@ export default function PaymentTerms({
       )}
 
       {hasBarter && (
-        <div style={{ marginTop: paid ? 12 : 0 }}>
+        <div className={paid ? "terms-gap" : undefined}>
           <strong>
-            {paid
-              ? "Also included for the influencer"
-              : "What the influencer gets"}
+            {paid ? "Also included for the creator" : "What the creator gets"}
           </strong>
-          <div style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+          <div className="terms-text">
             {barterDescription?.trim() || "Not described yet"}
           </div>
           {!paid && (
-            <div style={{ color: "gray", marginTop: 4 }}>
-              No money is paid in this deal.
-            </div>
+            <div className="muted small">No money is paid in this deal.</div>
           )}
         </div>
       )}

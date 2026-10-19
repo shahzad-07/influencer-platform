@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { LANGUAGES, MAX_LANGUAGES } from "../lib/languages";
 import type { Language } from "../lib/languages";
+import AppLayout from "../components/AppLayout";
 
 const PLATFORMS = [
   "INSTAGRAM",
@@ -155,62 +155,67 @@ export default function InfluencerProfile() {
     }
   }
 
-  if (loading) return <p style={{ padding: 16 }}>Loading...</p>;
+  if (loading) {
+    return (
+      <AppLayout>
+        <p className="muted">Loading...</p>
+      </AppLayout>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto", padding: 16 }}>
-      <p>
-        <Link to="/influencer">← Back to dashboard</Link>
-      </p>
-      <h1>My Profile</h1>
+    <AppLayout>
+      <form className="stack form-wide" onSubmit={handleSubmit}>
+        <h1>My profile</h1>
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-        <label>
-          Bio (max 500 characters)
+        <div className="field">
+          <label htmlFor="bio">Bio</label>
           <textarea
+            id="bio"
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             maxLength={500}
             rows={4}
-            style={{ width: "100%" }}
           />
-        </label>
+          <span className="hint">Up to 500 characters</span>
+        </div>
 
-        <label>
-          Location
+        <div className="field">
+          <label htmlFor="location">City</label>
           <input
+            id="location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             maxLength={100}
-            style={{ width: "100%" }}
           />
-        </label>
+        </div>
 
-        <label>
-          Niches (separate with commas)
+        <div className="field">
+          <label htmlFor="niches">Niches</label>
           <input
+            id="niches"
             value={nichesText}
             onChange={(e) => setNichesText(e.target.value)}
             placeholder="tech, lifestyle, fitness"
-            style={{ width: "100%" }}
           />
-        </label>
+          <span className="hint">Separate with commas</span>
+        </div>
 
-        <fieldset style={{ border: "1px solid #ccc", borderRadius: 8 }}>
+        <fieldset className="group">
           <legend>
             Languages you make content in ({languages.length}/{MAX_LANGUAGES})
           </legend>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px" }}>
+          <div className="chips">
             {LANGUAGES.map((lang) => {
               const checked = languages.includes(lang);
               return (
-                <label key={lang}>
+                <label key={lang} className="chip-check">
                   <input
                     type="checkbox"
                     checked={checked}
                     disabled={!checked && languages.length >= MAX_LANGUAGES}
                     onChange={() => toggleLanguage(lang)}
-                  />{" "}
+                  />
                   {lang}
                 </label>
               );
@@ -218,11 +223,13 @@ export default function InfluencerProfile() {
           </div>
         </fieldset>
 
-        <div>
-          <strong>Social links (up to 5)</strong>
+        <div className="stack">
+          <h2 className="h-sm">Social links (up to 5)</h2>
           {links.map((link, i) => (
-            <div key={i} style={{ display: "flex", gap: 8, margin: "8px 0" }}>
+            <div key={i} className="row row-links">
               <select
+                className="input"
+                aria-label="Platform"
                 value={link.platform}
                 onChange={(e) =>
                   updateLink(i, { platform: e.target.value as Platform })
@@ -235,16 +242,19 @@ export default function InfluencerProfile() {
                 ))}
               </select>
               <input
+                className="input"
                 type="url"
+                aria-label="Link"
                 placeholder="https://..."
                 value={link.url}
                 onChange={(e) => updateLink(i, { url: e.target.value })}
                 required
-                style={{ flex: 1 }}
               />
               <input
+                className="input"
                 type="number"
                 min={0}
+                aria-label="Followers"
                 placeholder="Followers"
                 value={link.followers}
                 onChange={(e) =>
@@ -255,50 +265,51 @@ export default function InfluencerProfile() {
                     ),
                   })
                 }
-                style={{ width: 100 }}
               />
-              <button type="button" onClick={() => removeLink(i)}>
+              <button
+                className="btn btn-outline btn-sm"
+                type="button"
+                onClick={() => removeLink(i)}
+              >
                 Remove
               </button>
             </div>
           ))}
           {links.length < 5 && (
-            <button type="button" onClick={addLink}>
+            <button
+              className="btn btn-outline btn-sm self-start"
+              type="button"
+              onClick={addLink}
+            >
               + Add link
             </button>
           )}
         </div>
 
-        <div>
-          <strong>
+        <div className="stack">
+          <h2 className="h-sm">
             Portfolio ({portfolio.length}/{MAX_PORTFOLIO})
-          </strong>
-          <p style={{ color: "gray", margin: "4px 0 8px" }}>
+          </h2>
+          <p className="muted">
             Show brands your past work. Add a link to each piece (no uploads
             needed).
           </p>
 
           {portfolio.map((item, i) => (
-            <div
-              key={i}
-              style={{
-                border: "1px solid #ccc",
-                borderRadius: 8,
-                padding: 8,
-                margin: "8px 0",
-                display: "grid",
-                gap: 8,
-              }}
-            >
+            <div key={i} className="card stack">
               <input
+                className="input"
+                aria-label="Title"
                 placeholder="Title (e.g. Cafe launch reel)"
                 value={item.title}
                 onChange={(e) => updateItem(i, { title: e.target.value })}
                 maxLength={100}
                 required
               />
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="row row-work">
                 <select
+                  className="input"
+                  aria-label="Platform"
                   value={item.platform}
                   onChange={(e) =>
                     updateItem(i, {
@@ -313,46 +324,65 @@ export default function InfluencerProfile() {
                   ))}
                 </select>
                 <input
+                  className="input"
                   type="url"
+                  aria-label="Link"
                   placeholder="https://..."
                   value={item.url}
                   onChange={(e) => updateItem(i, { url: e.target.value })}
                   maxLength={300}
                   required
-                  style={{ flex: 1 }}
                 />
               </div>
               <textarea
+                className="input"
+                aria-label="Summary"
                 placeholder="Short summary (optional): what it was, results, views..."
                 value={item.summary}
                 onChange={(e) => updateItem(i, { summary: e.target.value })}
                 maxLength={300}
                 rows={2}
               />
-              <button type="button" onClick={() => removeItem(i)}>
+              <button
+                className="btn btn-outline btn-sm self-start"
+                type="button"
+                onClick={() => removeItem(i)}
+              >
                 Remove this item
               </button>
             </div>
           ))}
 
           {portfolio.length < MAX_PORTFOLIO ? (
-            <button type="button" onClick={addItem}>
+            <button
+              className="btn btn-outline btn-sm self-start"
+              type="button"
+              onClick={addItem}
+            >
               + Add portfolio item
             </button>
           ) : (
-            <p style={{ color: "gray" }}>
+            <p className="muted">
               You've reached the limit of {MAX_PORTFOLIO} items.
             </p>
           )}
         </div>
 
-        {error && <p style={{ color: "crimson", margin: 0 }}>{error}</p>}
-        {message && <p style={{ color: "green", margin: 0 }}>{message}</p>}
+        {error && (
+          <p className="alert" role="alert">
+            {error}
+          </p>
+        )}
+        {message && (
+          <p className="success" role="status">
+            {message}
+          </p>
+        )}
 
-        <button type="submit" disabled={saving}>
+        <button className="btn btn-primary" type="submit" disabled={saving}>
           {saving ? "Saving..." : "Save profile"}
         </button>
       </form>
-    </div>
+    </AppLayout>
   );
 }

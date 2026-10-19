@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import AppLayout from "../components/AppLayout";
 
 const SERVICE_TYPES = [
   "INSTAGRAM_POST",
@@ -41,7 +41,7 @@ export default function InfluencerPricing() {
     api<{ prices: Price[] }>("/pricing/me")
       .then(({ prices }) => setPrices(prices))
       .catch((err) =>
-        setError(err instanceof Error ? err.message : "Could not load prices"),
+        setError(err instanceof Error ? err.message : "Could not load rates"),
       )
       .finally(() => setLoading(false));
   }, [refreshKey]);
@@ -60,12 +60,12 @@ export default function InfluencerPricing() {
           description,
         }),
       });
-      setMessage("Price saved!");
+      setMessage("Rate saved!");
       setRupees("");
       setDescription("");
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save price");
+      setError(err instanceof Error ? err.message : "Could not save rate");
     } finally {
       setSaving(false);
     }
@@ -78,7 +78,7 @@ export default function InfluencerPricing() {
       await api(`/pricing/me/${type}`, { method: "DELETE" });
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete price");
+      setError(err instanceof Error ? err.message : "Could not delete rate");
     }
   }
 
@@ -90,97 +90,118 @@ export default function InfluencerPricing() {
     setMessage("");
   }
 
-  if (loading) return <p style={{ padding: 16 }}>Loading...</p>;
+  if (loading) {
+    return (
+      <AppLayout>
+        <p className="muted">Loading...</p>
+      </AppLayout>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto", padding: 16 }}>
-      <p>
-        <Link to="/influencer">← Back to dashboard</Link>
-      </p>
-      <h1>My Pricing</h1>
-      <p style={{ color: "gray" }}>Only brands can see these prices.</p>
+    <AppLayout>
+      <div className="stack form-wide">
+        <div>
+          <h1>My rates</h1>
+          <p className="muted">Only brands can see these.</p>
+        </div>
 
-      <h2>Your prices</h2>
-      {prices.length === 0 ? (
-        <p>No prices yet. Add your first one below.</p>
-      ) : (
-        <ul style={{ paddingLeft: 0, listStyle: "none" }}>
-          {prices.map((p) => (
-            <li
-              key={p.serviceType}
-              style={{
-                display: "flex",
-                gap: 12,
-                alignItems: "center",
-                margin: "8px 0",
-              }}
+        <section className="card">
+          <h2 className="h-sm">Your rates</h2>
+          {prices.length === 0 ? (
+            <p className="muted">No rates yet. Add your first one below.</p>
+          ) : (
+            <div>
+              {prices.map((p) => (
+                <div key={p.serviceType} className="price-row wrap">
+                  <div>
+                    <strong>{p.serviceType.replaceAll("_", " ")}</strong>:{" "}
+                    {formatRupees(p.amount)}
+                    {p.description && (
+                      <div className="muted small">{p.description}</div>
+                    )}
+                  </div>
+                  <div className="btn-row">
+                    <button
+                      className="btn btn-outline btn-sm"
+                      type="button"
+                      onClick={() => handleEdit(p)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      type="button"
+                      onClick={() => handleDelete(p.serviceType)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <form className="card stack" onSubmit={handleSubmit}>
+          <h2 className="h-sm">Add or update a rate</h2>
+
+          <div className="field">
+            <label htmlFor="service">Service</label>
+            <select
+              id="service"
+              value={serviceType}
+              onChange={(e) => setServiceType(e.target.value as ServiceType)}
             >
-              <span style={{ flex: 1 }}>
-                <strong>{p.serviceType.replaceAll("_", " ")}</strong>:{" "}
-                {formatRupees(p.amount)}
-                {p.description && (
-                  <span style={{ color: "gray" }}> ({p.description})</span>
-                )}
-              </span>
-              <button type="button" onClick={() => handleEdit(p)}>
-                Edit
-              </button>
-              <button type="button" onClick={() => handleDelete(p.serviceType)}>
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+              {SERVICE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t.replaceAll("_", " ")}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      <h2>Add or update a price</h2>
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-        <label>
-          Service
-          <select
-            value={serviceType}
-            onChange={(e) => setServiceType(e.target.value as ServiceType)}
-            style={{ width: "100%" }}
-          >
-            {SERVICE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t.replaceAll("_", " ")}
-              </option>
-            ))}
-          </select>
-        </label>
+          <div className="field">
+            <label htmlFor="rupees">Rate in rupees (₹)</label>
+            <input
+              id="rupees"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={rupees}
+              onChange={(e) => setRupees(e.target.value)}
+              required
+            />
+          </div>
 
-        <label>
-          Price in rupees (₹)
-          <input
-            type="number"
-            min={0}
-            step={1}
-            value={rupees}
-            onChange={(e) => setRupees(e.target.value)}
-            required
-            style={{ width: "100%" }}
-          />
-        </label>
+          <div className="field">
+            <label htmlFor="description">Description (optional)</label>
+            <input
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              maxLength={300}
+              placeholder="1 reel, up to 30 seconds"
+            />
+          </div>
 
-        <label>
-          Description (optional)
-          <input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            maxLength={300}
-            placeholder="1 reel, up to 30 seconds"
-            style={{ width: "100%" }}
-          />
-        </label>
+          {error && (
+            <p className="alert" role="alert">
+              {error}
+            </p>
+          )}
+          {message && (
+            <p className="success" role="status">
+              {message}
+            </p>
+          )}
 
-        {error && <p style={{ color: "crimson", margin: 0 }}>{error}</p>}
-        {message && <p style={{ color: "green", margin: 0 }}>{message}</p>}
-
-        <button type="submit" disabled={saving}>
-          {saving ? "Saving..." : "Save price"}
-        </button>
-      </form>
-    </div>
+          <button className="btn btn-primary" type="submit" disabled={saving}>
+            {saving ? "Saving..." : "Save rate"}
+          </button>
+        </form>
+      </div>
+    </AppLayout>
   );
 }

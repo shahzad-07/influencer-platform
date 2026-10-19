@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import AppLayout from "../components/AppLayout";
 
 interface BrandCard {
   id: string;
@@ -83,110 +84,113 @@ export default function BrowseBrands() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / LIMIT)) : 1;
 
   return (
-    <div style={{ maxWidth: 900, margin: "40px auto", padding: 16 }}>
-      <p>
-        <Link to="/influencer">← Back to dashboard</Link>
-      </p>
-      <h1>Find Brands</h1>
+    <AppLayout>
+      <div className="stack">
+        <h1>Find brands</h1>
 
-      <form
-        onSubmit={handleSearch}
-        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-      >
-        <input
-          placeholder="Industry (e.g. restaurant)"
-          value={industryInput}
-          onChange={(e) => setIndustryInput(e.target.value)}
-        />
-        <input
-          placeholder="Location (e.g. Bengaluru)"
-          value={locationInput}
-          onChange={(e) => setLocationInput(e.target.value)}
-        />
-        <button type="submit">Search</button>
-        <button type="button" onClick={handleClear}>
-          Clear
-        </button>
-      </form>
-
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
-      {loading && <p>Loading...</p>}
-
-      {!loading && data && data.brands.length === 0 && (
-        <p>No brands found. Try different filters.</p>
-      )}
-
-      {data && data.brands.length > 0 && (
-        <>
-          <p style={{ color: "gray" }}>{data.total} brand(s) found</p>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-              gap: 16,
-            }}
-          >
-            {data.brands.map((b) => (
-              <div
-                key={b.id}
-                style={{
-                  border: "1px solid #ccc",
-                  borderRadius: 8,
-                  padding: 12,
-                }}
-              >
-                <h3 style={{ margin: "0 0 4px" }}>{b.name}</h3>
-                {b.location && (
-                  <div style={{ color: "gray" }}>{b.location}</div>
-                )}
-                {b.industry && (
-                  <span
-                    style={{
-                      display: "inline-block",
-                      background: "#eee",
-                      color: "#333",
-                      borderRadius: 12,
-                      padding: "2px 8px",
-                      margin: "8px 0",
-                      fontSize: 12,
-                    }}
-                  >
-                    {b.industry}
-                  </span>
-                )}
-                <p>
-                  {b.description.length > 100
-                    ? `${b.description.slice(0, 100)}...`
-                    : b.description}
-                </p>
-                <Link to={`/influencer/brands/${b.id}`}>View brand →</Link>
-              </div>
-            ))}
+        <form className="filters filters-2" onSubmit={handleSearch}>
+          <div className="field">
+            <label htmlFor="industry">Industry</label>
+            <input
+              id="industry"
+              placeholder="e.g. restaurant"
+              value={industryInput}
+              onChange={(e) => setIndustryInput(e.target.value)}
+            />
           </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              alignItems: "center",
-              marginTop: 16,
-            }}
-          >
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              Previous
+          <div className="field">
+            <label htmlFor="location">City</label>
+            <input
+              id="location"
+              placeholder="e.g. Bengaluru"
+              value={locationInput}
+              onChange={(e) => setLocationInput(e.target.value)}
+            />
+          </div>
+          <div className="actions">
+            <button className="btn btn-primary" type="submit">
+              Search
             </button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
             <button
-              disabled={page >= totalPages}
-              onClick={() => setPage(page + 1)}
+              className="btn btn-outline"
+              type="button"
+              onClick={handleClear}
             >
-              Next
+              Clear
             </button>
           </div>
-        </>
-      )}
-    </div>
+        </form>
+
+        {error && (
+          <p className="alert" role="alert">
+            {error}
+          </p>
+        )}
+        {loading && <p className="muted">Loading...</p>}
+
+        {!loading && data && data.brands.length === 0 && (
+          <p className="muted">No brands found. Try different filters.</p>
+        )}
+
+        {data && data.brands.length > 0 && (
+          <>
+            <p className="muted">{data.total} brand(s) found</p>
+            <div className="cards">
+              {data.brands.map((b) => (
+                <article key={b.id} className="person">
+                  <div className="person-head">
+                    <span className="avatar" aria-hidden="true">
+                      {b.name.trim().charAt(0).toUpperCase() || "?"}
+                    </span>
+                    <div>
+                      <h3>{b.name}</h3>
+                      {b.location && (
+                        <div className="muted small">{b.location}</div>
+                      )}
+                    </div>
+                  </div>
+                  {b.industry && (
+                    <div className="tags">
+                      <span className="tag">{b.industry}</span>
+                    </div>
+                  )}
+                  <p>
+                    {b.description.length > 100
+                      ? `${b.description.slice(0, 100)}...`
+                      : b.description}
+                  </p>
+                  <Link
+                    className="btn btn-outline btn-sm"
+                    to={`/influencer/brands/${b.id}`}
+                  >
+                    View brand
+                  </Link>
+                </article>
+              ))}
+            </div>
+
+            <div className="pager">
+              <button
+                className="btn btn-outline btn-sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                Previous
+              </button>
+              <span>
+                Page {page} of {totalPages}
+              </span>
+              <button
+                className="btn btn-outline btn-sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </AppLayout>
   );
 }

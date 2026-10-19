@@ -57,10 +57,10 @@ function formatRemaining(ms: number) {
 function eventLabel(e: ShareInfo["log"][number]) {
   const w = stageWord(e.stage);
   if (e.event === "SHARED")
-    return `Influencer shared payment details for the ${w}`;
+    return `Creator shared payment details for the ${w}`;
   if (e.event === "VIEWED")
     return `Brand viewed the payment details for the ${w}`;
-  return `Influencer ended the ${w} share`;
+  return `Creator ended the ${w} share`;
 }
 
 // A clock that ticks every second, but only while something is counting down
@@ -87,18 +87,11 @@ function CopyButton({ value }: { value: string }) {
     }
   }
   return (
-    <button type="button" onClick={copy} style={{ marginLeft: 8 }}>
+    <button type="button" className="btn btn-outline btn-sm" onClick={copy}>
       {copied ? "Copied" : "Copy"}
     </button>
   );
 }
-
-const box = {
-  border: "1px solid #ccc",
-  borderRadius: 8,
-  padding: 12,
-  margin: "8px 0",
-} as const;
 
 export default function PaymentSharePanel({
   dealId,
@@ -110,7 +103,7 @@ export default function PaymentSharePanel({
   const stage = STAGE_BY_STATUS[status] ?? null;
 
   const [info, setInfo] = useState<ShareInfo | null>(null);
-  const [hasDetails, setHasDetails] = useState<boolean | null>(null); // influencer only
+  const [hasDetails, setHasDetails] = useState<boolean | null>(null); // creator only
   const [view, setView] = useState<ViewResponse | null>(null);
   const [qr, setQr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -126,7 +119,7 @@ export default function PaymentSharePanel({
     setError("");
   }, [dealId, status]);
 
-  // Load the share status (and, for an influencer, whether details are saved)
+  // Load the share status (and, for a creator, whether details are saved)
   useEffect(() => {
     let cancelled = false;
 
@@ -257,38 +250,48 @@ export default function PaymentSharePanel({
   const shareIsOpen = Boolean(openShare) && !expired;
 
   return (
-    <section>
+    <section className="stack">
       <h2>Payment details</h2>
 
       {stage && role === "INFLUENCER" && (
-        <div style={box}>
+        <div className="card stack">
           {hasDetails === false ? (
-            <p style={{ margin: 0 }}>
+            <p>
               You haven't saved payment details yet.{" "}
               <Link to="/influencer/payment-details">Save them first</Link>,
               then come back to share them.
             </p>
           ) : shareIsOpen ? (
             <>
-              <p style={{ margin: "0 0 8px" }}>
+              <p>
                 Your details are shared with <strong>{otherName}</strong> for
                 the {stageWord(stage)} payment. Access ends in{" "}
                 <strong>{remaining}</strong>.
               </p>
-              <button type="button" onClick={handleEndShare} disabled={busy}>
+              <button
+                type="button"
+                className="btn btn-outline self-start"
+                onClick={handleEndShare}
+                disabled={busy}
+              >
                 End sharing now
               </button>
             </>
           ) : (
             <>
-              <p style={{ margin: "0 0 8px" }}>
+              <p>
                 Share your payment details with <strong>{otherName}</strong> so
                 they can pay the {stageWord(stage)} ({formatRupees(stageAmount)}
                 ). They will see your full account number and UPI ID for{" "}
                 {SHARE_HOURS} hours, then access ends automatically. You can end
                 it sooner.
               </p>
-              <button type="button" onClick={handleShare} disabled={busy}>
+              <button
+                type="button"
+                className="btn btn-primary self-start"
+                onClick={handleShare}
+                disabled={busy}
+              >
                 {busy ? "Working..." : "Share payment details"}
               </button>
             </>
@@ -297,38 +300,38 @@ export default function PaymentSharePanel({
       )}
 
       {stage && role === "BRAND" && (
-        <div style={box}>
+        <div className="card stack">
           {view ? (
             <>
-              <p style={{ margin: "0 0 8px" }}>
+              <p>
                 Pay the <strong>{stageWord(stage)}</strong>:{" "}
                 <strong>{formatRupees(view.amountDue)}</strong>. Visible for{" "}
                 <strong>{remaining}</strong>.
               </p>
-              <p style={{ color: "crimson", margin: "0 0 8px" }}>
+              <p className="alert">
                 Before paying, check that the account holder name matches the
-                influencer.
+                creator.
               </p>
 
-              <div style={{ display: "grid", gap: 4 }}>
-                <div>Name: {view.details.accountHolderName}</div>
+              <div className="stack">
+                <div className="kv">Name: {view.details.accountHolderName}</div>
                 {view.details.bankName && (
-                  <div>Bank: {view.details.bankName}</div>
+                  <div className="kv">Bank: {view.details.bankName}</div>
                 )}
                 {view.details.accountNumber && (
-                  <div>
+                  <div className="kv">
                     Account number: {view.details.accountNumber}
                     <CopyButton value={view.details.accountNumber} />
                   </div>
                 )}
                 {view.details.ifsc && (
-                  <div>
+                  <div className="kv">
                     IFSC: {view.details.ifsc}
                     <CopyButton value={view.details.ifsc} />
                   </div>
                 )}
                 {view.details.upiId && (
-                  <div>
+                  <div className="kv">
                     UPI ID: {view.details.upiId}
                     <CopyButton value={view.details.upiId} />
                   </div>
@@ -336,47 +339,57 @@ export default function PaymentSharePanel({
               </div>
 
               {qr && (
-                <div style={{ margin: "12px 0" }}>
+                <div className="stack">
                   <img
+                    className="qr"
                     src={qr}
                     alt="UPI QR code with the amount filled in"
                     width={220}
                     height={220}
                   />
-                  <div style={{ color: "gray", fontSize: 13 }}>
+                  <div className="muted small">
                     Scan with any UPI app. The amount is already filled in.
                   </div>
                 </div>
               )}
 
               {view.upiUri && view.upiUri.startsWith("upi://pay?") && (
-                <p style={{ margin: "8px 0" }}>
+                <p>
                   <a href={view.upiUri}>Open in my UPI app</a> (on a phone)
                 </p>
               )}
 
-              <p style={{ color: "gray", margin: "8px 0" }}>
+              <p className="muted">
                 After paying, click{" "}
                 <strong>I've sent the {stageWord(stage)}</strong> above and
                 enter the payment reference (UTR).
               </p>
-              <button type="button" onClick={handleHide}>
+              <button
+                type="button"
+                className="btn btn-outline self-start"
+                onClick={handleHide}
+              >
                 Hide details
               </button>
             </>
           ) : shareIsOpen ? (
             <>
-              <p style={{ margin: "0 0 8px" }}>
+              <p>
                 <strong>{otherName}</strong> has shared payment details for the{" "}
                 {stageWord(stage)} ({formatRupees(stageAmount)}). Available for{" "}
                 <strong>{remaining}</strong>.
               </p>
-              <button type="button" onClick={handleShow} disabled={busy}>
+              <button
+                type="button"
+                className="btn btn-primary self-start"
+                onClick={handleShow}
+                disabled={busy}
+              >
                 {busy ? "Loading..." : "Show payment details"}
               </button>
             </>
           ) : (
-            <p style={{ margin: 0 }}>
+            <p>
               {otherName} hasn't shared payment details for the{" "}
               {stageWord(stage)}, or the share has ended. Ask them to share
               again, for example in <Link to="/messages">Messages</Link>.
@@ -385,16 +398,20 @@ export default function PaymentSharePanel({
         </div>
       )}
 
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {error && (
+        <p className="alert" role="alert">
+          {error}
+        </p>
+      )}
 
       {log.length > 0 && (
-        <details>
+        <details className="activity">
           <summary>Sharing activity ({log.length})</summary>
-          <ul>
+          <ul className="plain-list">
             {log.slice(0, 10).map((e, i) => (
               <li key={i}>
                 {eventLabel(e)}{" "}
-                <span style={{ color: "gray", fontSize: 13 }}>
+                <span className="muted small">
                   {new Date(e.at).toLocaleString()}
                 </span>
               </li>

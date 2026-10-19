@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { LANGUAGES } from "../lib/languages";
+import AppLayout from "../components/AppLayout";
 
 interface SocialLink {
   platform: string;
@@ -66,7 +67,7 @@ export default function BrowseInfluencers() {
       .catch((err) => {
         if (!cancelled)
           setError(
-            err instanceof Error ? err.message : "Could not load influencers",
+            err instanceof Error ? err.message : "Could not load creators",
           );
       })
       .finally(() => {
@@ -102,134 +103,139 @@ export default function BrowseInfluencers() {
     links.reduce((sum, l) => sum + l.followers, 0);
 
   return (
-    <div style={{ maxWidth: 900, margin: "40px auto", padding: 16 }}>
-      <p>
-        <Link to="/brand">← Back to dashboard</Link>
-      </p>
-      <h1>Find Influencers</h1>
+    <AppLayout>
+      <div className="stack">
+        <h1>Find creators</h1>
 
-      <form
-        onSubmit={handleSearch}
-        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-      >
-        <input
-          placeholder="Niche (e.g. tech)"
-          value={nicheInput}
-          onChange={(e) => setNicheInput(e.target.value)}
-        />
-        <input
-          placeholder="Location (e.g. Bengaluru)"
-          value={locationInput}
-          onChange={(e) => setLocationInput(e.target.value)}
-        />
-        <select
-          value={languageInput}
-          onChange={(e) => setLanguageInput(e.target.value)}
-          aria-label="Language"
-        >
-          <option value="">Any language</option>
-          {LANGUAGES.map((lang) => (
-            <option key={lang} value={lang}>
-              {lang}
-            </option>
-          ))}
-        </select>
-        <button type="submit">Search</button>
-        <button type="button" onClick={handleClear}>
-          Clear
-        </button>
-      </form>
-
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
-      {loading && <p>Loading...</p>}
-
-      {!loading && data && data.influencers.length === 0 && (
-        <p>No influencers found. Try different filters.</p>
-      )}
-
-      {data && data.influencers.length > 0 && (
-        <>
-          <p style={{ color: "gray" }}>{data.total} influencer(s) found</p>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-              gap: 16,
-            }}
-          >
-            {data.influencers.map((inf) => (
-              <div
-                key={inf.id}
-                style={{
-                  border: "1px solid #ccc",
-                  borderRadius: 8,
-                  padding: 12,
-                }}
-              >
-                <h3 style={{ margin: "0 0 4px" }}>{inf.name}</h3>
-                {inf.location && (
-                  <div style={{ color: "gray" }}>{inf.location}</div>
-                )}
-                <p>
-                  {inf.bio.length > 100
-                    ? `${inf.bio.slice(0, 100)}...`
-                    : inf.bio}
-                </p>
-                <div style={{ marginBottom: 8 }}>
-                  {inf.niches.map((n) => (
-                    <span
-                      key={n}
-                      style={{
-                        display: "inline-block",
-                        background: "#eee",
-                        color: "#333",
-                        borderRadius: 12,
-                        padding: "2px 8px",
-                        margin: "0 4px 4px 0",
-                        fontSize: 12,
-                      }}
-                    >
-                      {n}
-                    </span>
-                  ))}
-                </div>
-                {inf.languages && inf.languages.length > 0 && (
-                  <div style={{ fontSize: 13, marginBottom: 4 }}>
-                    Languages: {inf.languages.join(", ")}
-                  </div>
-                )}
-                <div style={{ fontSize: 13, color: "gray" }}>
-                  {totalFollowers(inf.socialLinks).toLocaleString("en-IN")}{" "}
-                  followers total
-                </div>
-                <Link to={`/brand/influencers/${inf.id}`}>View profile →</Link>
-              </div>
-            ))}
+        <form className="filters" onSubmit={handleSearch}>
+          <div className="field">
+            <label htmlFor="niche">Niche</label>
+            <input
+              id="niche"
+              placeholder="e.g. tech"
+              value={nicheInput}
+              onChange={(e) => setNicheInput(e.target.value)}
+            />
           </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              alignItems: "center",
-              marginTop: 16,
-            }}
-          >
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              Previous
-            </button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
-            <button
-              disabled={page >= totalPages}
-              onClick={() => setPage(page + 1)}
+          <div className="field">
+            <label htmlFor="location">City</label>
+            <input
+              id="location"
+              placeholder="e.g. Bengaluru"
+              value={locationInput}
+              onChange={(e) => setLocationInput(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="language">Language</label>
+            <select
+              id="language"
+              value={languageInput}
+              onChange={(e) => setLanguageInput(e.target.value)}
             >
-              Next
+              <option value="">Any language</option>
+              {LANGUAGES.map((lang) => (
+                <option key={lang} value={lang}>
+                  {lang}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="actions">
+            <button className="btn btn-primary" type="submit">
+              Search
+            </button>
+            <button
+              className="btn btn-outline"
+              type="button"
+              onClick={handleClear}
+            >
+              Clear
             </button>
           </div>
-        </>
-      )}
-    </div>
+        </form>
+
+        {error && (
+          <p className="alert" role="alert">
+            {error}
+          </p>
+        )}
+        {loading && <p className="muted">Loading...</p>}
+
+        {!loading && data && data.influencers.length === 0 && (
+          <p className="muted">No creators found. Try different filters.</p>
+        )}
+
+        {data && data.influencers.length > 0 && (
+          <>
+            <p className="muted">{data.total} creator(s) found</p>
+            <div className="cards">
+              {data.influencers.map((inf) => (
+                <article key={inf.id} className="person">
+                  <div className="person-head">
+                    <span className="avatar" aria-hidden="true">
+                      {inf.name.trim().charAt(0).toUpperCase() || "?"}
+                    </span>
+                    <div>
+                      <h3>{inf.name}</h3>
+                      {inf.location && (
+                        <div className="muted small">{inf.location}</div>
+                      )}
+                    </div>
+                  </div>
+                  <p>
+                    {inf.bio.length > 100
+                      ? `${inf.bio.slice(0, 100)}...`
+                      : inf.bio}
+                  </p>
+                  <div className="tags">
+                    {inf.niches.map((n) => (
+                      <span key={n} className="tag">
+                        {n}
+                      </span>
+                    ))}
+                  </div>
+                  {inf.languages && inf.languages.length > 0 && (
+                    <div className="small">
+                      Languages: {inf.languages.join(", ")}
+                    </div>
+                  )}
+                  <div className="muted small">
+                    {totalFollowers(inf.socialLinks).toLocaleString("en-IN")}{" "}
+                    followers total
+                  </div>
+                  <Link
+                    className="btn btn-outline btn-sm"
+                    to={`/brand/influencers/${inf.id}`}
+                  >
+                    View profile
+                  </Link>
+                </article>
+              ))}
+            </div>
+
+            <div className="pager">
+              <button
+                className="btn btn-outline btn-sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                Previous
+              </button>
+              <span>
+                Page {page} of {totalPages}
+              </span>
+              <button
+                className="btn btn-outline btn-sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </AppLayout>
   );
 }

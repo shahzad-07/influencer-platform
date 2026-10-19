@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import AppLayout from "../components/AppLayout";
 
 interface BrandProfileData {
   companyName: string;
@@ -65,79 +65,91 @@ export default function BrandProfile() {
     }
   }
 
-  if (loading) return <p style={{ padding: 16 }}>Loading...</p>;
+  if (loading) {
+    return (
+      <AppLayout>
+        <p className="muted">Loading...</p>
+      </AppLayout>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto", padding: 16 }}>
-      <p>
-        <Link to="/brand">← Back to dashboard</Link>
-      </p>
-      <h1>Brand Profile</h1>
-      <p style={{ color: "gray" }}>
-        Influencers see this when they browse brands.
-      </p>
+    <AppLayout>
+      <form className="stack form-wide" onSubmit={handleSubmit}>
+        <div>
+          <h1>Brand profile</h1>
+          <p className="muted">Creators see this when they browse brands.</p>
+        </div>
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-        <label>
-          Company name
+        <div className="field">
+          <label htmlFor="companyName">Company name</label>
           <input
+            id="companyName"
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             maxLength={100}
-            style={{ width: "100%" }}
           />
-        </label>
+        </div>
 
-        <label>
-          Industry
+        <div className="field">
+          <label htmlFor="industry">Industry</label>
           <input
+            id="industry"
             value={industry}
             onChange={(e) => setIndustry(e.target.value)}
             placeholder="restaurant, fashion, tech..."
             maxLength={50}
-            style={{ width: "100%" }}
           />
-        </label>
+        </div>
 
-        <label>
-          Website
+        <div className="field">
+          <label htmlFor="website">Website</label>
           <input
+            id="website"
             value={website}
             onChange={(e) => setWebsite(e.target.value)}
             placeholder="https://yourbrand.com"
             maxLength={200}
-            style={{ width: "100%" }}
           />
-        </label>
+        </div>
 
-        <label>
-          Description (max 500 characters)
+        <div className="field">
+          <label htmlFor="description">Description</label>
           <textarea
+            id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             maxLength={500}
             rows={4}
-            style={{ width: "100%" }}
           />
-        </label>
+          <span className="hint">Up to 500 characters</span>
+        </div>
 
-        <label>
-          Location
+        <div className="field">
+          <label htmlFor="location">City</label>
           <input
+            id="location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             maxLength={100}
-            style={{ width: "100%" }}
           />
-        </label>
+        </div>
 
-        {error && <p style={{ color: "crimson", margin: 0 }}>{error}</p>}
-        {message && <p style={{ color: "green", margin: 0 }}>{message}</p>}
+        {error && (
+          <p className="alert" role="alert">
+            {error}
+          </p>
+        )}
+        {message && (
+          <p className="success" role="status">
+            {message}
+          </p>
+        )}
 
-        <button type="submit" disabled={saving}>
+        <button className="btn btn-primary" type="submit" disabled={saving}>
           {saving ? "Saving..." : "Save profile"}
         </button>
       </form>
-    </div>
+    </AppLayout>
   );
 }

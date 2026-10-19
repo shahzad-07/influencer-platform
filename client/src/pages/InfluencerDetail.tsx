@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import AppLayout from "../components/AppLayout";
 
 interface SocialLink {
   platform: string;
@@ -67,7 +69,7 @@ export default function InfluencerDetail() {
       .catch((err) => {
         if (!cancelled)
           setError(
-            err instanceof Error ? err.message : "Could not load influencer",
+            err instanceof Error ? err.message : "Could not load creator",
           );
       })
       .finally(() => {
@@ -101,143 +103,147 @@ export default function InfluencerDetail() {
   const languages = influencer?.languages ?? [];
 
   return (
-    <div style={{ maxWidth: 700, margin: "40px auto", padding: 16 }}>
+    <AppLayout>
       <p>
-        <Link to="/brand/influencers">← Back to search</Link>
+        <Link to="/brand/influencers">Back to search</Link>
       </p>
 
-      {loading && <p>Loading...</p>}
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {loading && <p className="muted">Loading...</p>}
+      {error && (
+        <p className="alert" role="alert">
+          {error}
+        </p>
+      )}
 
       {influencer && (
-        <>
-          <h1 style={{ marginBottom: 4 }}>{influencer.name}</h1>
-          {influencer.location && (
-            <div style={{ color: "gray" }}>{influencer.location}</div>
-          )}
-
-          <div style={{ margin: "12px 0" }}>
-            {influencer.niches.map((n) => (
-              <span
-                key={n}
-                style={{
-                  display: "inline-block",
-                  background: "#eee",
-                  color: "#333",
-                  borderRadius: 12,
-                  padding: "2px 8px",
-                  margin: "0 4px 4px 0",
-                  fontSize: 12,
-                }}
-              >
-                {n}
+        <div className="stack">
+          <div className="detail-head">
+            <div className="person-head">
+              <span className="avatar" aria-hidden="true">
+                {influencer.name.trim().charAt(0).toUpperCase() || "?"}
               </span>
-            ))}
+              <div>
+                <h1>{influencer.name}</h1>
+                {influencer.location && (
+                  <div className="muted">{influencer.location}</div>
+                )}
+              </div>
+            </div>
+            <div className="btn-row">
+              <button
+                className="btn btn-primary"
+                onClick={handleContact}
+                disabled={contacting}
+              >
+                {contacting ? "Opening chat..." : "Contact"}
+              </button>
+              <Link
+                className="btn btn-outline"
+                to={`/brand/offers/new/${influencer.id}`}
+              >
+                Make an offer
+              </Link>
+            </div>
           </div>
 
-          {languages.length > 0 && (
-            <div style={{ margin: "0 0 12px" }}>
-              <strong>Languages:</strong> {languages.join(", ")}
-            </div>
-          )}
+          <div className="detail">
+            <div className="stack">
+              <div className="tags">
+                {influencer.niches.map((n) => (
+                  <span key={n} className="tag">
+                    {n}
+                  </span>
+                ))}
+              </div>
 
-          {influencer.bio && <p>{influencer.bio}</p>}
-
-          <h2>Social media</h2>
-          {influencer.socialLinks.length === 0 ? (
-            <p>No social links added.</p>
-          ) : (
-            <ul>
-              {influencer.socialLinks.map((l, i) => (
-                <li key={i}>
-                  <strong>{l.platform}</strong>:{" "}
-                  {isSafeUrl(l.url) ? (
-                    <a href={l.url} target="_blank" rel="noopener noreferrer">
-                      {l.url}
-                    </a>
-                  ) : (
-                    l.url
-                  )}{" "}
-                  ({l.followers.toLocaleString("en-IN")} followers)
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <h2>Past work</h2>
-          {portfolio.length === 0 ? (
-            <p>No portfolio items yet.</p>
-          ) : (
-            <div style={{ display: "grid", gap: 12 }}>
-              {portfolio.map((item, i) => (
-                <div
-                  key={i}
-                  style={{
-                    border: "1px solid #ccc",
-                    borderRadius: 8,
-                    padding: 12,
-                  }}
-                >
-                  <div
-                    style={{ display: "flex", gap: 8, alignItems: "center" }}
-                  >
-                    <strong>{item.title}</strong>
-                    <span
-                      style={{
-                        background: "#eee",
-                        color: "#333",
-                        borderRadius: 12,
-                        padding: "2px 8px",
-                        fontSize: 12,
-                      }}
-                    >
-                      {item.platform}
-                    </span>
-                  </div>
-                  {item.summary && (
-                    <p style={{ margin: "8px 0" }}>{item.summary}</p>
-                  )}
-                  {isSafeUrl(item.url) ? (
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View work →
-                    </a>
-                  ) : (
-                    <span style={{ color: "gray" }}>{item.url}</span>
-                  )}
+              {languages.length > 0 && (
+                <div>
+                  <strong>Languages:</strong> {languages.join(", ")}
                 </div>
-              ))}
+              )}
+
+              {influencer.bio && <p>{influencer.bio}</p>}
+
+              <h2>Social media</h2>
+              {influencer.socialLinks.length === 0 ? (
+                <p className="muted">No social links added.</p>
+              ) : (
+                <ul className="plain-list">
+                  {influencer.socialLinks.map((l, i) => (
+                    <li key={i}>
+                      <strong>{l.platform}</strong>:{" "}
+                      {isSafeUrl(l.url) ? (
+                        <a
+                          href={l.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {l.url}
+                        </a>
+                      ) : (
+                        l.url
+                      )}{" "}
+                      <span className="muted">
+                        ({l.followers.toLocaleString("en-IN")} followers)
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <h2>Past work</h2>
+              {portfolio.length === 0 ? (
+                <p className="muted">No portfolio items yet.</p>
+              ) : (
+                <div className="stack">
+                  {portfolio.map((item, i) => (
+                    <article key={i} className="person">
+                      <div className="person-head">
+                        <strong>{item.title}</strong>
+                        <span className="tag">{item.platform}</span>
+                      </div>
+                      {item.summary && <p>{item.summary}</p>}
+                      {isSafeUrl(item.url) ? (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View work
+                        </a>
+                      ) : (
+                        <span className="muted">{item.url}</span>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
 
-          <h2>Pricing</h2>
-          {prices.length === 0 ? (
-            <p>This influencer hasn't listed prices yet.</p>
-          ) : (
-            <ul>
-              {prices.map((p) => (
-                <li key={p.serviceType}>
-                  <strong>{p.serviceType.replaceAll("_", " ")}</strong>:{" "}
-                  {formatRupees(p.amount)}
-                  {p.description && (
-                    <span style={{ color: "gray" }}> ({p.description})</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <button onClick={handleContact} disabled={contacting}>
-              {contacting ? "Opening chat..." : "Contact"}
-            </button>
-            <Link to={`/brand/offers/new/${influencer.id}`}>Make an offer</Link>
+            <aside className="card">
+              <h2>Rates</h2>
+              <p className="muted small">Only brands can see these.</p>
+              {prices.length === 0 ? (
+                <p className="muted">This creator hasn't listed rates yet.</p>
+              ) : (
+                <div>
+                  {prices.map((p) => (
+                    <div key={p.serviceType} className="price-row">
+                      <div>
+                        <strong>{p.serviceType.replaceAll("_", " ")}</strong>
+                        {p.description && (
+                          <div className="muted small">{p.description}</div>
+                        )}
+                      </div>
+                      <strong>{formatRupees(p.amount)}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </aside>
           </div>
-        </>
+        </div>
       )}
-    </div>
+    </AppLayout>
   );
 }

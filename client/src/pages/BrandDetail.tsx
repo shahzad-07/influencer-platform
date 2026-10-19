@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
+import AppLayout from "../components/AppLayout";
 
 interface Brand {
   id: string;
@@ -65,35 +66,47 @@ export default function BrandDetail() {
   }
 
   return (
-    <div style={{ maxWidth: 700, margin: "40px auto", padding: 16 }}>
+    <AppLayout>
       <p>
-        <Link to="/influencer/brands">← Back to search</Link>
+        <Link to="/influencer/brands">Back to search</Link>
       </p>
 
-      {loading && <p>Loading...</p>}
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {loading && <p className="muted">Loading...</p>}
+      {error && (
+        <p className="alert" role="alert">
+          {error}
+        </p>
+      )}
 
       {brand && (
-        <>
-          <h1 style={{ marginBottom: 4 }}>{brand.name}</h1>
-          {brand.location && (
-            <div style={{ color: "gray" }}>{brand.location}</div>
-          )}
+        <div className="stack form-wide">
+          <div className="detail-head">
+            <div className="person-head">
+              <span className="avatar" aria-hidden="true">
+                {brand.name.trim().charAt(0).toUpperCase() || "?"}
+              </span>
+              <div>
+                <h1>{brand.name}</h1>
+                {brand.location && (
+                  <div className="muted">{brand.location}</div>
+                )}
+              </div>
+            </div>
+            <div className="btn-row">
+              <button
+                className="btn btn-primary"
+                onClick={handleContact}
+                disabled={contacting}
+              >
+                {contacting ? "Opening chat..." : "Contact"}
+              </button>
+            </div>
+          </div>
 
           {brand.industry && (
-            <span
-              style={{
-                display: "inline-block",
-                background: "#eee",
-                color: "#333",
-                borderRadius: 12,
-                padding: "2px 8px",
-                margin: "12px 0",
-                fontSize: 12,
-              }}
-            >
-              {brand.industry}
-            </span>
+            <div className="tags">
+              <span className="tag">{brand.industry}</span>
+            </div>
           )}
 
           {brand.description && <p>{brand.description}</p>}
@@ -114,12 +127,8 @@ export default function BrandDetail() {
               )}
             </p>
           )}
-
-          <button onClick={handleContact} disabled={contacting}>
-            {contacting ? "Opening chat..." : "Contact"}
-          </button>
-        </>
+        </div>
       )}
-    </div>
+    </AppLayout>
   );
 }
