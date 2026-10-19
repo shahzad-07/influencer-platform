@@ -14,7 +14,12 @@ export default function ProtectedRoute({
   const allowedRoles = Array.isArray(role) ? role : [role];
 
   // Still checking the saved token with the server
-  if (loading) return <p style={{ padding: 16 }}>Loading...</p>;
+  if (loading)
+    return (
+      <p className="page muted" role="status">
+        Loading...
+      </p>
+    );
 
   // Not logged in
   if (!user) return <Navigate to="/login" replace />;
