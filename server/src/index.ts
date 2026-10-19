@@ -55,14 +55,16 @@ checkSettings();
 
 const app = express();
 
-// TEMPORARY, REMOVE AFTER MEASURING: open /api/health?measure=1 once and read
-// the log. It prints only how many proxies added their address, never an address.
-app.use((req, _res, next) => {
+// TEMPORARY, REMOVE AFTER MEASURING: open /api/health?measure=1 once. The page
+// answers with only a number: how many proxies added their address to
+// X-Forwarded-For. It never shows an address.
+app.use((req, res, next) => {
   if (req.path === "/api/health" && req.query.measure === "1") {
     const forwarded = req.headers["x-forwarded-for"];
     const count =
       typeof forwarded === "string" ? forwarded.split(",").length : 0;
-    console.log(`MEASURE proxy addresses in X-Forwarded-For: ${count}`);
+    res.json({ proxyAddresses: count });
+    return;
   }
   next();
 });
