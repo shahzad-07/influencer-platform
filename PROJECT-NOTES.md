@@ -59,7 +59,7 @@ Decision: Render for both the server (Web Service) and the client (Static Site).
    - 5a. Server: DONE and live at `https://influencer-platform-api.onrender.com` (health page: `/api/health`). Settings used: Web Service, Free, region Singapore, branch `main`, Root Directory `server`, Build Command `npm ci && npm run build`, Start Command `npm start`, Health Check Path `/api/health`. Environment variables set: `NODE_VERSION=24`, `MONGODB_URI` (the production string, which must end in `/influencerprod?...`), `JWT_SECRET` and `PAYMENT_ENCRYPTION_KEY` (both new, made for production and backed up in the password manager). `CLIENT_URL` was added in 5c. Not set yet: `TRUST_PROXY` (see "Things to remember").
    - 5b. Client as a Render Static Site: DONE, live at `https://influencer-platform-web-7qdx.onrender.com`. Settings used: root directory `client`, build command `npm ci && npm run build`, publish directory `dist`, environment variables `VITE_API_URL` = `https://influencer-platform-api.onrender.com/api` and `NODE_VERSION=24`, and a Rewrite rule (source `/*`, destination `/index.html`, action Rewrite) so refreshing `/deals` does not give a 404. `VITE_API_URL` is baked in at build time, so if it ever changes the site must be rebuilt.
    - 5c. `CLIENT_URL` on the server = `https://influencer-platform-web-7qdx.onrender.com`: DONE. The server redeployed and its start-up warning about `CLIENT_URL` is gone.
-   - 5d. Measure `TRUST_PROXY` (see "Things to remember"). TO DO.
+   - 5d. `TRUST_PROXY=3`: DONE. Measured as 3 proxy hops, set as `TRUST_PROXY` = `3` on the Render server, and the temporary measuring code was removed again.
 6. Smoke test on the live site: sign up (never a `@test.com` address or a guessable password; use a strong password that is used nowhere else), make an offer, run a barter deal, check chat. TO DO. The accounts and deals made here are real rows in the production database, and there is no delete-account feature yet, so remove them in Atlas (database `influencerprod`) before real users arrive.
 
 Things to remember:
@@ -86,8 +86,18 @@ Still to do (next person picks up here):
 
 1. Check the live site on a real phone (Chrome and Safari): landing page, sign up, a deal, chat, the bottom tab bar, dark theme. Fix anything that looks wrong.
 2. Optional later: a phone home-screen icon (`apple-touch-icon`) and a share image for links; rename the `/influencer/...` URLs and file names to `creator`; the leftover word "influencer" now only appears in code names and code comments.
-3. The earlier deploy to-dos still stand (see "In progress" and "Next"): measure `TRUST_PROXY`, the smoke test on the live site, a lawyer review of the Terms, a privacy policy.
+3. The earlier deploy to-dos still stand (see "In progress" and "Next"): the smoke test on the live site, a lawyer review of the Terms, a privacy policy.
    Rules for this work: UI only, no behaviour changes; keep every server-side rule; labels on every field; test at 360 px wide and in dark theme; `npx tsc --noEmit -p tsconfig.app.json` after each file.
+
+## Deploying (manual, since 2026-10-20)
+
+Auto-Deploy is Off on both Render services, so pushing to `main` does not change the live site. To release:
+
+1. Test locally and push to `main` as usual.
+2. In Render, open the server service, then **Manual Deploy** > **Deploy latest commit**. Wait for **Live** and check the Logs.
+3. Do the same for the client service.
+
+If a change touches both sides, deploy the server first. Deploying a specific commit or rolling back also turns auto-deploy off in Render, which is fine. Leave it off.
 
 ## Next
 
@@ -180,6 +190,7 @@ How to use this log:
 - 2026-10-17: Step 5 piece 2 done. `server/src/index.ts` now checks its settings at startup (stops with a clear message if `MONGODB_URI`, `JWT_SECRET` or `PAYMENT_ENCRYPTION_KEY` is missing or malformed) and allows browser calls only from `CLIENT_URL` (no trailing slash; defaults to `http://localhost:5173`, so if your Vite runs on another port, set `CLIENT_URL` in `server/.env`). `server/package.json` has new `build` (esbuild bundle into `dist/`) and `start` scripts, and `esbuild` as a dev dependency. After you pull, run `npm install` in `server/`. Daily work is still `npm run dev`. Next: piece 3, the client.
 - 2026-10-17: Step 5 piece 3 done. `client/src/lib/api.ts` exports `API_URL` (trailing slash removed, console error in a live build if `VITE_API_URL` is missing). `client/src/lib/socket.ts` now derives the chat address from `API_URL`, so `VITE_SOCKET_URL` is gone. Nothing changes for local work. Next: piece 4, the separate production database on Atlas.
 - 2026-10-17: Step 5 piece 4 done (production database set up in Atlas, no code changes). Nothing to pull or run. The connection string is not in the repo and must stay out of it. Next: piece 5, the deploy on Render, starting with new production values for `JWT_SECRET` and `PAYMENT_ENCRYPTION_KEY`.
+- 2026-10-20: `TRUST_PROXY=3` is set on the Render server (measured earlier, measuring code removed). Auto-Deploy is now Off on both Render services, so releases are manual (see "Deploying (manual)"). Did a manual deploy of both services afterwards. Next: smoke test on the live site, then the public-launch gaps (offer expiry check, password reset, privacy policy, disputes).
 
 ### Shazu's entries (the friend)
 
