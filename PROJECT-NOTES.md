@@ -24,7 +24,7 @@ Last updated: 2026-10-18. Repo: github.com/shahzad-07/influencer-platform (publi
 - Authorization is enforced on the server (`authenticate` + `requireRole`). The UI only reflects it. Pricing is visible to brands only.
 - Money is whole paise (integers). Payment amounts come from the deal, never from the request.
 - The deal flow is one table in `server/src/modules/deals/deal.transitions.ts`. The server returns `allowedActions` and the deal page shows only those buttons.
-- No in-app payment gateway. The influencer saves payment details (encrypted AES-256-GCM, key `PAYMENT_ENCRYPTION_KEY` in `server/.env`) and shares them with a brand for a fixed 6 hours. The brand pays outside the app and enters a UTR. The influencer confirms or says "not received". Every view is logged.
+- No in-app payment gateway. The influencer saves payment details (encrypted AES-256-GCM, key `PAYMENT_ENCRYPTION_KEY` in `server/.env`) and shares them with a brand for a fixed 6 hours. The brand pays outside the app and enters a UTR. The influencer confirms or says "not received". Every view is logged.  PLANNED CHANGE (milestone M3): the 6-hour share goes away. See "Backlog and milestones". Don't change this rule until M3 is built.
 - Collaboration types: PAID, BARTER, PAID_AND_BARTER. Barter-only skips payment steps (accept goes to IN_PROGRESS, verifyLink completes the deal).
 - Mongo: bounded lists are embedded (portfolio, status history, payment records). Unbounded ones (chat messages) are separate collections.
 - Scripts in `server/scripts` test everything.
@@ -99,6 +99,42 @@ Auto-Deploy is Off on both Render services, so pushing to `main` does not change
 
 If a change touches both sides, deploy the server first. Deploying a specific commit or rolling back also turns auto-deploy off in Render, which is fine. Leave it off.
 
+## Backlog and milestones (agreed 2026-10-20)
+
+Done one at a time, in this order. Each milestone ends with the type checks, tests, a browser check, a git step and, if the server changed, a manual deploy (server first, then client).
+
+1. M1, deal page and slow login (client, small)
+   - Deal page: a "Next step" card at the top (who must act, with their buttons; the other side sees "Waiting for X"), and the timeline newest first.
+   - Slow login/signup: first find the cause (free server waking up vs password hashing). Likely fixes: wake the server when the landing page opens, show a "waking up, can take a minute" message, later a keep-alive ping or a paid always-on server.
+2. M2, payment reference optional (server + client, small). The brand may leave it empty. Tests updated.
+3. M3, payment details without the 6-hour share (server + client, medium)
+   - After the creator accepts, the brand gets a "Show payment details" button at the payment stages (advance due, final due) of that deal only. No approval each time.
+   - The server decrypts only for the brand of that deal, only at those stages. Every view is logged and the creator can see the log. The QR with the amount stays.
+   - A creator must have saved payment details before accepting a paid offer, and the accept screen says the brand will see them when payment is due.
+   - The Terms (section 5) and the payment rule above are updated. The share routes and `payment-share-test.mjs` are replaced.
+4. M4, notifications (server + client, medium)
+   - A bell with an unread count and a list. Clicking an item opens the deal. Payment items have a quick "Yes, received" button with a confirmation.
+   - A separate collection, created by the server inside the deal transitions, live through Socket.io.
+5. M5, WhatsApp-style chat (server + client, medium)
+   - A conversation list sorted by last message with a preview, bold unread rows, round unread count, and an unread total on the chat icon (tab bar on phone, header on laptop).
+   - Marked as read when opened, live updates.
+6. M6, draft file upload (server + client, large)
+   - Drafts only. The portfolio stays links only.
+   - The browser uploads straight to object storage with a short-lived signed URL, so the server never handles the video. Size and type limits. Each submission is a version. The brand watches it in the app. Files are deleted some time after the deal ends.
+   - First compare storage providers and their free limits (not checked yet).
+7. M7, calendar (server + client, medium)
+   - Schedule items on a deal (shoot, visit, go-live). Either side proposes a date and time, the other accepts or suggests another. Accepted items show on both calendars (month and list). Stored inside the deal. Times in IST. Notifications on proposals and changes.
+8. M8, brand campaigns / broadcast (server + client, large)
+   - Needs two creator profile fields: niche and follower count (self-declared, labelled so).
+   - A brand posts a campaign (brief, niche, minimum followers, languages, creators needed, collaboration type, deadline). Matching creators see it and apply. The brand shortlists and turns an applicant into an offer. Matching creators get a notification (M4).
+9. M9, email notifications (server, medium). So people come back to the app. Needs an email provider (free tier to check).
+
+Separate track before real users sign up: clean the test data in production, update the Terms for M3, a privacy policy, check that expired offers are blocked, password reset, dispute handling, lawyer review.
+
+Small later fix: logging in as a second account in the same browser silently replaces the first tab's login. Show a "signed in as another account" message.
+
+To confirm at the start of each milestone: M3 (creator must have saved details before accepting), M5 (the list shows conversations only), M6 (provider, and whether links stay as a fallback), M7 (which kinds of schedule items), M8 (creators apply, or the brand invites).
+
 ## Next
 
 Small to-dos (any time):
@@ -108,7 +144,7 @@ Small to-dos (any time):
 
 Later: brand subscription gate, dashboards, reviews and reputation, notifications, phone OTP, open campaigns, counter-offers, multiple deliverables, rate cards, chat upgrades, availability toggle, deal agreement, admin/disputes and the offer-expiry job.
 
-Not wanted: reel uploads, SEO/growth pages, AI helper.
+Not wanted: portfolio or reel hosting (the portfolio stays links only), SEO/growth pages, AI helper. Wanted, in milestone M6: video file upload for drafts only, so the brand can approve before posting.
 
 ## Security and legal to-dos
 
@@ -191,6 +227,7 @@ How to use this log:
 - 2026-10-17: Step 5 piece 3 done. `client/src/lib/api.ts` exports `API_URL` (trailing slash removed, console error in a live build if `VITE_API_URL` is missing). `client/src/lib/socket.ts` now derives the chat address from `API_URL`, so `VITE_SOCKET_URL` is gone. Nothing changes for local work. Next: piece 4, the separate production database on Atlas.
 - 2026-10-17: Step 5 piece 4 done (production database set up in Atlas, no code changes). Nothing to pull or run. The connection string is not in the repo and must stay out of it. Next: piece 5, the deploy on Render, starting with new production values for `JWT_SECRET` and `PAYMENT_ENCRYPTION_KEY`.
 - 2026-10-20: `TRUST_PROXY=3` is set on the Render server (measured earlier, measuring code removed). Auto-Deploy is now Off on both Render services, so releases are manual (see "Deploying (manual)"). Did a manual deploy of both services afterwards. Next: smoke test on the live site, then the public-launch gaps (offer expiry check, password reset, privacy policy, disputes).
+- 2026-10-20: Wrote the backlog from the owner's list as milestones M1 to M9 (see "Backlog and milestones"). No code changed. Next: M1.
 
 ### Shazu's entries (the friend)
 
