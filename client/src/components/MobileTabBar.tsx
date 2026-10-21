@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
 import NotificationBell from "./NotificationBell";
+import { useChatUnread } from "../context/ChatUnreadContext";
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -21,6 +22,7 @@ function Icon({ children }: { children: ReactNode }) {
 
 export default function MobileTabBar() {
   const { user } = useAuth();
+  const chatUnread = useChatUnread();
   if (!user) return null;
 
   const isBrand = user.role === "BRAND";
@@ -55,7 +57,17 @@ export default function MobileTabBar() {
         <Icon>
           <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
         </Icon>
-        Chat
+        <span className="chat-tab-label">
+          Chat
+          {chatUnread > 0 && (
+            <span
+              className="chat-nav-count"
+              aria-label={`${chatUnread} unread chat messages`}
+            >
+              {chatUnread > 99 ? "99+" : chatUnread}
+            </span>
+          )}
+        </span>
       </NavLink>
       <div className="notification-tab">
         <NotificationBell />
