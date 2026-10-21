@@ -206,7 +206,7 @@ If the variables are missing, the scripts stop with a clear message. Two scripts
 
 ## Starting a new chat with Claude
 
-Tell it to read this file and the files it needs from the GitHub repo (`main`), and to start with "In progress". Check that it uses the latest files before replacing anything.
+Tell it to pull the repo (`main`), read this whole file, and start from "Backlog and milestones" and the newest entries in the Shared log, both people's. Say which milestone you are on. Check that it uses the latest files before replacing anything, and make it confirm what it understood before it writes code.
 
 ## Shared log (Shahzad and friend)
 
@@ -229,6 +229,7 @@ How to use this log:
 - 2026-10-20: `TRUST_PROXY=3` is set on the Render server (measured earlier, measuring code removed). Auto-Deploy is now Off on both Render services, so releases are manual (see "Deploying (manual)"). Did a manual deploy of both services afterwards. Next: smoke test on the live site, then the public-launch gaps (offer expiry check, password reset, privacy policy, disputes).
 - 2026-10-20: Wrote the backlog from the owner's list as milestones M1 to M9 (see "Backlog and milestones"). No code changed. Next: M1.
 - 2026-10-20: M1 part 1 done: new `client/src/components/SlowNotice.tsx` (shows a "server may be waking up, up to a minute" note if a request takes more than 3 seconds), used in `Login.tsx` and `Signup.tsx`. Client only, no server change. Not deployed yet (release is manual). Next: M1 part 2, the "Next step" card at the top of the deal page and the timeline newest first.
+- 2026-10-21: Started a new chat for the next milestone with a handoff prompt. Updated "Starting a new chat with Claude". Next: M1 part 2, the deal page.
 
 ### Shazu's entries (the friend)
 
