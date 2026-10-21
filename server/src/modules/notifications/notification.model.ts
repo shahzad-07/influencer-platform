@@ -1,12 +1,14 @@
 import { Schema, model } from "mongoose";
 import { DEAL_ACTIONS } from "../deals/deal.transitions";
 
+export const NOTIFICATION_ACTIONS = [...DEAL_ACTIONS, "createOffer"] as const;
+
 const notificationSchema = new Schema(
   {
     recipient: { type: Schema.Types.ObjectId, ref: "User", required: true },
     deal: { type: Schema.Types.ObjectId, ref: "Deal", required: true },
     actor: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    action: { type: String, enum: DEAL_ACTIONS, required: true },
+    action: { type: String, enum: NOTIFICATION_ACTIONS, required: true },
     readAt: { type: Date, default: null },
   },
   { timestamps: true },
