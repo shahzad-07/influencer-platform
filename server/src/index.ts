@@ -13,6 +13,7 @@ import brandRoutes from "./modules/brands/brand.routes";
 import dealRoutes from "./modules/deals/deal.routes";
 import paymentDetailsRoutes from "./modules/payments/payment-details.routes";
 import paymentShareRoutes from "./modules/payments/payment-share.routes";
+import notificationRoutes from "./modules/notifications/notification.routes";
 import {
   apiLimiter,
   loginAccountLimiter,
@@ -85,6 +86,7 @@ app.use("/api/brands", brandRoutes);
 app.use("/api/deals", dealRoutes);
 app.use("/api/payment-details", paymentDetailsRoutes);
 app.use("/api/payment-shares", paymentShareRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Socket.io needs the raw HTTP server, not just the Express app
 const httpServer = http.createServer(app);
