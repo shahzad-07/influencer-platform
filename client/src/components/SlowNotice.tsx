@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Spinner from "./Spinner";
 
 interface Props {
   // How long to wait before showing the note
@@ -19,9 +20,12 @@ export default function SlowNotice({ afterMs = 3000 }: Props) {
   if (!slow) return null;
 
   return (
-    <p className="muted" role="status">
-      Still working. The server may be waking up after a quiet period, so this
-      can take up to a minute. Please don't close the page.
+    <p className="muted slow-notice" role="status">
+      <Spinner />
+      <span>
+        Still working. The server may be waking up after a quiet period, so this
+        can take up to a minute. Please don't close the page.
+      </span>
     </p>
   );
 }
