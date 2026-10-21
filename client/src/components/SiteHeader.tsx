@@ -3,9 +3,11 @@ import { useAuth } from "../context/AuthContext";
 import Logo from "./Logo";
 import NotificationBell from "./NotificationBell";
 import ThemeToggle from "./ThemeToggle";
+import { useChatUnread } from "../context/ChatUnreadContext";
 
 export default function SiteHeader() {
   const { user, loading, logout } = useAuth();
+  const chatUnread = useChatUnread();
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -41,7 +43,17 @@ export default function SiteHeader() {
               {isBrand ? "Find creators" : "Find brands"}
             </NavLink>
             <NavLink to="/deals">Deals</NavLink>
-            <NavLink to="/messages">Messages</NavLink>
+            <NavLink to="/messages">
+              Messages
+              {chatUnread > 0 && (
+                <span
+                  className="chat-nav-count"
+                  aria-label={`${chatUnread} unread chat messages`}
+                >
+                  {chatUnread > 99 ? "99+" : chatUnread}
+                </span>
+              )}
+            </NavLink>
             <NavLink to={profilePath}>Profile</NavLink>
           </nav>
         )}
