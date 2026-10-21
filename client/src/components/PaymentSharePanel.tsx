@@ -361,8 +361,8 @@ export default function PaymentSharePanel({
 
               <p className="muted">
                 After paying, click{" "}
-                <strong>I've sent the {stageWord(stage)}</strong> above and
-                enter the payment reference (UTR).
+                <strong>I've sent the {stageWord(stage)}</strong> above. You can
+                add the payment reference (UTR), but it is optional.
               </p>
               <button
                 type="button"

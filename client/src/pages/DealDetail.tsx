@@ -69,7 +69,7 @@ const ACTIONS: Record<string, ActionConfig> = {
   markAdvanceSent: {
     label: "I've sent the advance",
     reference: true,
-    help: "Pay directly from your UPI or banking app first, then enter the reference here.",
+    help: "Pay directly from your UPI or banking app first. The payment reference is optional, but it helps the creator find the payment.",
   },
   confirmAdvance: { label: "I received the advance", note: "optional" },
   rejectAdvance: {
@@ -101,7 +101,7 @@ const ACTIONS: Record<string, ActionConfig> = {
   markFinalSent: {
     label: "I've sent the final payment",
     reference: true,
-    help: "Pay directly from your UPI or banking app first, then enter the reference here.",
+    help: "Pay directly from your UPI or banking app first. The payment reference is optional, but it helps the creator find the payment.",
   },
   confirmFinal: { label: "I received the final payment", note: "optional" },
   rejectFinal: {
@@ -139,7 +139,7 @@ const STEP_TEXT: Record<string, { mine: string; theirs: string }> = {
     theirs: "respond to the offer",
   },
   ACCEPTED: {
-    mine: "Pay the advance outside the app, then enter the reference here.",
+    mine: "Pay the advance outside the app, then mark it as sent. Adding the payment reference is optional.",
     theirs: "send the advance",
   },
   ADVANCE_SENT: {
@@ -167,7 +167,7 @@ const STEP_TEXT: Record<string, { mine: string; theirs: string }> = {
     theirs: "check the post link",
   },
   LINK_VERIFIED: {
-    mine: "Pay the final amount outside the app, then enter the reference here.",
+    mine: "Pay the final amount outside the app, then mark it as sent. Adding the payment reference is optional.",
     theirs: "send the final payment",
   },
   FINAL_SENT: {
@@ -376,16 +376,15 @@ export default function DealDetail() {
               {cfg.reference && (
                 <div className="field">
                   <label htmlFor="reference">
-                    Payment reference (UTR or transaction ID)
+                    Payment reference (UTR or transaction ID), optional
                   </label>
                   <input
                     id="reference"
                     value={reference}
                     onChange={(e) => setReference(e.target.value)}
                     pattern="[A-Za-z0-9\-]{6,30}"
-                    title="6 to 30 letters, digits or dashes, no spaces"
+                    title="Optional. If you add one: 6 to 30 letters, digits or dashes, no spaces"
                     maxLength={30}
-                    required
                     autoComplete="off"
                   />
                 </div>
@@ -570,8 +569,10 @@ export default function DealDetail() {
                       <span className="tag">{p.status.toLowerCase()}</span>
                     </div>
                     <div className="muted small">
-                      Reference {p.reference}. Sent{" "}
-                      {new Date(p.sentAt).toLocaleString()}
+                      {p.reference
+                        ? `Reference ${p.reference}.`
+                        : "No reference given."}{" "}
+                      Sent {new Date(p.sentAt).toLocaleString()}
                       {p.resolvedAt &&
                         `. Settled ${new Date(p.resolvedAt).toLocaleString()}`}
                     </div>

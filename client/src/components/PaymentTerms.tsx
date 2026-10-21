@@ -43,8 +43,9 @@ export default function PaymentTerms({
               Payments are made directly between the brand and the creator,
               outside this app (for example by UPI or bank transfer). The app
               does not hold or move any money. It only records them: the brand
-              enters a payment reference (UTR) after paying, and the creator
-              confirms that it arrived.
+              marks the payment as sent after paying (adding the payment
+              reference, such as a UTR, is optional), and the creator confirms
+              that it arrived.
             </li>
           </ul>
         </>
