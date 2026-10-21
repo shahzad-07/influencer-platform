@@ -239,7 +239,8 @@ export default function Landing() {
                 <h3>Your details stay protected</h3>
                 <p>
                   Rates are visible to brands only. Payment details are
-                  encrypted and shared for 6 hours, with every view logged.
+                  encrypted and shown to the brand at the relevant payment
+                  stage, with every view logged.
                 </p>
               </div>
               <div>
