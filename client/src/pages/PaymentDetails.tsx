@@ -86,7 +86,7 @@ export default function PaymentDetails() {
   async function handleDelete() {
     if (
       !window.confirm(
-        "Delete your payment details? Any active share with a brand will end.",
+        "Delete your saved payment details? A brand will no longer be able to view them for future payment stages.",
       )
     ) {
       return;
@@ -117,9 +117,8 @@ export default function PaymentDetails() {
         <div>
           <h1>Payment details</h1>
           <p className="muted">
-            These are private. A brand sees them only when you click{" "}
-            <strong>Share</strong> on a deal, and only for 6 hours. You can end
-            a share early.
+            These are private. For a paid deal, the brand can view your saved
+            details at the relevant payment stage. Each view is recorded.
           </p>
         </div>
 
