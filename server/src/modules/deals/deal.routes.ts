@@ -22,6 +22,16 @@ import { authenticate, requireRole } from "../auth/auth.middleware";
 import { PaymentDetailsModel } from "../payments/payment-details.model";
 import { NotificationModel } from "../notifications/notification.model";
 import { emitNotification } from "../../socket";
+import { randomUUID } from "node:crypto";
+import { DraftVersionModel } from "./draft-version.model";
+import {
+  createDraftUpload,
+  createDraftViewUrl,
+  DRAFT_BUCKET,
+  DRAFT_VIDEO_TYPES,
+  getDraftInfo,
+  MAX_DRAFT_BYTES,
+} from "./draft-storage";
 
 const router = Router();
 
@@ -101,6 +111,7 @@ const actionSchema = z.object({
   action: z.enum(DEAL_ACTIONS),
   note: z.string().trim().max(1000).optional(),
   url: httpUrl.optional(),
+  draftObjectPath: z.string().trim().max(500).optional(),
   // Optional. If given, it must look like a UTR; empty counts as not given.
   reference: z
     .string()
@@ -110,6 +121,25 @@ const actionSchema = z.object({
       "Reference must be 6 to 30 letters, digits or dashes",
     )
     .optional(),
+});
+
+const draftUploadSchema = z.object({
+  fileName: z.string().trim().min(1).max(200),
+  contentType: z.enum(DRAFT_VIDEO_TYPES),
+  sizeBytes: z.number().int().positive().max(MAX_DRAFT_BYTES),
+}).superRefine(({ fileName, contentType }, ctx) => {
+  const extension = contentType === "video/webm"
+    ? ".webm"
+    : contentType === "video/quicktime"
+      ? ".mov"
+      : ".mp4";
+  if (!fileName.toLowerCase().endsWith(extension)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["fileName"],
+      message: "The file extension must match its video type",
+    });
+  }
 });
 
 // Deals made before collaboration types existed have no value, and they are paid
@@ -260,6 +290,22 @@ router.get("/:id", async (req, res) => {
   const collaborationType = collabOf(deal);
   const terms: DealTerms = { paid: isPaid(collaborationType) };
   const payments = deal.payments ?? [];
+  const draftVersions = await DraftVersionModel.find({ deal: deal._id })
+    .sort({ version: -1 })
+    .limit(50)
+    .lean();
+  const drafts = await Promise.all(
+    draftVersions.map(async (draft) => ({
+      version: draft.version,
+      submittedAt: draft.createdAt,
+      link: draft.link,
+      contentType: draft.contentType,
+      sizeBytes: draft.sizeBytes,
+      videoUrl: draft.storagePath
+        ? await createDraftViewUrl(draft.storagePath)
+        : null,
+    })),
+  );
 
   res.json({
     deal: {
@@ -289,6 +335,7 @@ router.get("/:id", async (req, res) => {
       status: deal.status,
       expiresAt: deal.expiresAt,
       draftUrl: deal.draftUrl,
+      draftVersions: drafts,
       postUrl: deal.postUrl,
       brand: { id: String(deal.brand._id), name: deal.brand.name },
       influencer: {
@@ -312,13 +359,61 @@ router.get("/:id", async (req, res) => {
   });
 });
 
+// INFLUENCER: request a short-lived signed upload path for a draft video.
+router.post("/:id/draft-uploads", requireRole("INFLUENCER"), async (req, res) => {
+  const parsed = draftUploadSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
+  }
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(404).json({ message: "Deal not found" });
+  }
+
+  const deal = await DealModel.findOne({
+    _id: req.params.id,
+    influencer: req.user!.userId,
+  });
+  if (!deal) return res.status(404).json({ message: "Deal not found" });
+
+  if (
+    !nextStatus(
+      deal.status as DealStatus,
+      "submitDraft",
+      "INFLUENCER",
+      { paid: isPaid(collabOf(deal)) },
+    )
+  ) {
+    return res.status(409).json({ message: "A draft cannot be uploaded now" });
+  }
+
+  const ext =
+    parsed.data.contentType === "video/webm"
+      ? "webm"
+      : parsed.data.contentType === "video/quicktime"
+        ? "mov"
+        : "mp4";
+  const path = `${deal.id}/${req.user!.userId}/${randomUUID()}.${ext}`;
+  try {
+    const signed = await createDraftUpload(path);
+    res.json({ ...signed, bucket: DRAFT_BUCKET, contentType: parsed.data.contentType });
+  } catch {
+    res.status(503).json({ message: "Draft video upload is temporarily unavailable" });
+  }
+});
+
 // PARTICIPANTS: perform an action on a deal
 router.post("/:id/actions", async (req, res) => {
   const parsed = actionSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
   }
-  const { action, note = "", url, reference = "" } = parsed.data;
+  const {
+    action,
+    note = "",
+    url,
+    draftObjectPath,
+    reference = "",
+  } = parsed.data;
   const { userId } = req.user!;
 
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -372,14 +467,41 @@ router.post("/:id/actions", async (req, res) => {
   }
 
   const set: Record<string, unknown> = { status: next };
+  let checkedDraftVideo: { contentType: string; sizeBytes: number } | null = null;
   const push: Record<string, unknown> = {
     statusHistory: { status: next, by: userId, at: new Date(), note },
   };
 
   if (action === "submitDraft") {
-    if (!url)
-      return res.status(400).json({ message: "A draft link is required" });
-    set.draftUrl = url;
+    if (!url && !draftObjectPath) {
+      return res.status(400).json({ message: "Add a draft video or a draft link" });
+    }
+    if (draftObjectPath) {
+      const expectedPrefix = `${deal.id}/${deal.influencer}/`;
+      if (!draftObjectPath.startsWith(expectedPrefix)) {
+        return res.status(400).json({ message: "Invalid draft upload" });
+      }
+      const info = await getDraftInfo(draftObjectPath);
+      const metadata = info?.metadata as
+        | { size?: number; mimetype?: string; contentType?: string }
+        | undefined;
+      const actualSize = Number(info?.size ?? metadata?.size ?? 0);
+      const actualType = String(
+        info?.contentType ?? metadata?.mimetype ?? metadata?.contentType ?? "",
+      );
+      if (
+        !info ||
+        actualSize < 1 ||
+        actualSize > MAX_DRAFT_BYTES ||
+        !DRAFT_VIDEO_TYPES.includes(actualType as (typeof DRAFT_VIDEO_TYPES)[number])
+      ) {
+        return res.status(400).json({
+          message: "The uploaded file must be a video no larger than 1 MB",
+        });
+      }
+      checkedDraftVideo = { contentType: actualType, sizeBytes: actualSize };
+    }
+    set.draftUrl = url ?? "";
   }
   if (action === "submitLink") {
     if (!url)
@@ -439,6 +561,30 @@ router.post("/:id/actions", async (req, res) => {
     if (note) set["payments.$[p].note"] = note;
   }
 
+  let savedDraftVersionId: mongoose.Types.ObjectId | null = null;
+  if (action === "submitDraft") {
+    const latest = await DraftVersionModel.findOne({ deal: deal._id })
+      .sort({ version: -1 })
+      .select("version")
+      .lean();
+    try {
+      const version = await DraftVersionModel.create({
+        deal: deal._id,
+        version: (latest?.version ?? 0) + 1,
+        submittedBy: userId,
+        storagePath: draftObjectPath ?? "",
+        contentType: checkedDraftVideo?.contentType ?? "",
+        sizeBytes: checkedDraftVideo?.sizeBytes ?? 0,
+        link: url ?? "",
+      });
+      savedDraftVersionId = version._id;
+    } catch {
+      return res.status(409).json({
+        message: "The draft was just submitted. Refresh and try again.",
+      });
+    }
+  }
+
   // Compare-and-set: only applies if the status is still what we read
   const update: Record<string, unknown> = { $set: set, $push: push };
   const updated = await DealModel.findOneAndUpdate(
@@ -452,6 +598,9 @@ router.post("/:id/actions", async (req, res) => {
     },
   );
   if (!updated) {
+    if (savedDraftVersionId) {
+      await DraftVersionModel.deleteOne({ _id: savedDraftVersionId });
+    }
     return res.status(409).json({
       message:
         "The deal was just changed by someone else. Refresh and try again.",

@@ -14,6 +14,7 @@ import dealRoutes from "./modules/deals/deal.routes";
 import paymentDetailsRoutes from "./modules/payments/payment-details.routes";
 import paymentShareRoutes from "./modules/payments/payment-share.routes";
 import notificationRoutes from "./modules/notifications/notification.routes";
+import { cleanupExpiredDrafts } from "./modules/deals/draft-cleanup";
 import {
   apiLimiter,
   loginAccountLimiter,
@@ -95,6 +96,14 @@ initSocket(httpServer);
 async function start() {
   await mongoose.connect(process.env.MONGODB_URI as string);
   console.log("MongoDB connected");
+  void cleanupExpiredDrafts().catch(() => {
+    console.error("Draft retention cleanup failed");
+  });
+  setInterval(() => {
+    void cleanupExpiredDrafts().catch(() => {
+      console.error("Draft retention cleanup failed");
+    });
+  }, 24 * 60 * 60 * 1000).unref();
   const port = process.env.PORT || 5000;
   httpServer.listen(port, () => console.log(`Server running on port ${port}`));
 }

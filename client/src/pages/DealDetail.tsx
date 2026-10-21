@@ -9,6 +9,7 @@ import {
   statusLabel,
 } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
+import { getSupabaseClient } from "../lib/supabase";
 import PaymentSharePanel from "../components/PaymentSharePanel";
 import PaymentTerms from "../components/PaymentTerms";
 import AppLayout from "../components/AppLayout";
@@ -46,6 +47,14 @@ interface Deal {
   status: string;
   expiresAt?: string | null;
   draftUrl: string;
+  draftVersions: {
+    version: number;
+    submittedAt: string;
+    link: string;
+    contentType: string;
+    sizeBytes: number;
+    videoUrl: string | null;
+  }[];
   postUrl: string;
   brand: { id: string; name: string };
   influencer: { id: string; name: string };
@@ -58,6 +67,8 @@ interface ActionConfig {
   label: string;
   note?: "optional" | "required";
   urlLabel?: string; // asks for a link
+  optionalUrl?: boolean;
+  uploadDraft?: boolean;
   reference?: boolean; // asks for the payment reference (UTR)
   help?: string;
 }
@@ -79,7 +90,9 @@ const ACTIONS: Record<string, ActionConfig> = {
   },
   submitDraft: {
     label: "Submit draft",
-    urlLabel: "Link to your draft",
+    urlLabel: "Draft link (optional if you upload a video)",
+    optionalUrl: true,
+    uploadDraft: true,
     note: "optional",
   },
   requestChanges: {
@@ -147,7 +160,7 @@ const STEP_TEXT: Record<string, { mine: string; theirs: string }> = {
     theirs: "confirm the advance",
   },
   IN_PROGRESS: {
-    mine: "Make the content and submit a link to your draft.",
+    mine: "Make the content and submit a draft video or link.",
     theirs: "submit a draft",
   },
   DRAFT_SUBMITTED: {
@@ -155,7 +168,7 @@ const STEP_TEXT: Record<string, { mine: string; theirs: string }> = {
     theirs: "review your draft",
   },
   CHANGES_REQUESTED: {
-    mine: "Make the changes asked for and submit the draft again.",
+    mine: "Make the changes asked for and submit the updated video or link.",
     theirs: "submit the updated draft",
   },
   DRAFT_APPROVED: {
@@ -189,6 +202,7 @@ export default function DealDetail() {
   const [selected, setSelected] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [url, setUrl] = useState("");
+  const [draftFile, setDraftFile] = useState<File | null>(null);
   const [reference, setReference] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -225,6 +239,7 @@ export default function DealDetail() {
     setSelected(action);
     setNote("");
     setUrl("");
+    setDraftFile(null);
     setReference("");
     setActionError("");
   }
@@ -236,12 +251,45 @@ export default function DealDetail() {
     setSubmitting(true);
     setActionError("");
     try {
+      let draftObjectPath: string | undefined;
+      if (selected === "submitDraft" && draftFile) {
+        if (draftFile.size > 1024 * 1024) {
+          throw new Error("The video must be no larger than 1 MB");
+        }
+        if (
+          !["video/mp4", "video/webm", "video/quicktime"].includes(
+            draftFile.type,
+          )
+        ) {
+          throw new Error("Choose an MP4, WebM or MOV video");
+        }
+        const signed = await api<{
+          path: string;
+          token: string;
+          bucket: string;
+        }>(`/deals/${id}/draft-uploads`, {
+          method: "POST",
+          body: JSON.stringify({
+            fileName: draftFile.name,
+            contentType: draftFile.type,
+            sizeBytes: draftFile.size,
+          }),
+        });
+        const { error } = await getSupabaseClient()
+          .storage.from(signed.bucket)
+          .uploadToSignedUrl(signed.path, signed.token, draftFile, {
+            contentType: draftFile.type,
+          });
+        if (error) throw new Error("The video upload failed. Please try again.");
+        draftObjectPath = signed.path;
+      }
       await api(`/deals/${id}/actions`, {
         method: "POST",
         body: JSON.stringify({
           action: selected,
           note: note.trim() || undefined,
           url: url.trim() || undefined,
+          draftObjectPath,
           reference: reference.trim() || undefined,
         }),
       });
@@ -400,8 +448,25 @@ export default function DealDetail() {
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder="https://..."
                     maxLength={300}
-                    required
+                    required={!cfg.optionalUrl}
                   />
+                </div>
+              )}
+
+              {cfg.uploadDraft && (
+                <div className="field">
+                  <label htmlFor="draft-video">
+                    Draft video (optional, MP4/WebM/MOV, up to 1 MB)
+                  </label>
+                  <input
+                    id="draft-video"
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    onChange={(e) => setDraftFile(e.target.files?.[0] ?? null)}
+                  />
+                  <span className="muted small">
+                    Upload a video, add a link, or do both.
+                  </span>
                 </div>
               )}
 
@@ -502,11 +567,11 @@ export default function DealDetail() {
         </section>
 
         {/* Draft and post links */}
-        {(deal.draftUrl || deal.postUrl) && (
+        {(deal.postUrl || (deal.draftUrl && deal.draftVersions.length === 0)) && (
           <section className="stack">
             <h2>Links</h2>
             <ul className="plain-list">
-              {deal.draftUrl && (
+              {deal.draftUrl && deal.draftVersions.length === 0 && (
                 <li>
                   Draft:{" "}
                   {isSafeUrl(deal.draftUrl) ? (
@@ -539,6 +604,38 @@ export default function DealDetail() {
                 </li>
               )}
             </ul>
+          </section>
+        )}
+
+        {deal.draftVersions.length > 0 && (
+          <section className="stack">
+            <h2>Draft submissions</h2>
+            {deal.draftVersions.map((draft) => (
+              <article className="card stack" key={draft.version}>
+                <strong>Version {draft.version}</strong>
+                <span className="muted small">
+                  Submitted {new Date(draft.submittedAt).toLocaleString()}
+                </span>
+                {draft.videoUrl && (
+                  <video controls preload="metadata" style={{ width: "100%" }}>
+                    <source src={draft.videoUrl} type={draft.contentType} />
+                    Your browser cannot play this video.
+                  </video>
+                )}
+                {draft.link && (
+                  <p>
+                    Draft link: {isSafeUrl(draft.link) ? (
+                      <a href={draft.link} target="_blank" rel="noopener noreferrer">
+                        Open draft link
+                      </a>
+                    ) : draft.link}
+                  </p>
+                )}
+                {!draft.videoUrl && draft.contentType && (
+                  <p className="muted">Video is temporarily unavailable.</p>
+                )}
+              </article>
+            ))}
           </section>
         )}
 
