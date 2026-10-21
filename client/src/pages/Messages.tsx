@@ -11,6 +11,7 @@ interface ConversationItem {
   otherUser: { id: string; name: string };
   lastMessageText: string;
   lastMessageAt: string;
+  unreadCount: number;
 }
 
 interface ChatMessage {
@@ -56,9 +57,25 @@ export default function Messages() {
     [],
   );
 
+  // Reading a conversation clears only its own unread count on the server.
+  const markConversationRead = useCallback(async (id: string) => {
+    await api<{ readAt: string }>(`/chat/conversations/${id}/read`, {
+      method: "PATCH",
+    });
+    setConversations((prev) =>
+      prev.map((conversation) =>
+        conversation.id === id
+          ? { ...conversation, unreadCount: 0 }
+          : conversation,
+      ),
+    );
+  }, []);
+
   // Load my conversation list
   useEffect(() => {
-    api<{ conversations: ConversationItem[] }>("/chat/conversations")
+    api<{ conversations: ConversationItem[]; unreadTotal: number }>(
+      "/chat/conversations",
+    )
       .then((res) => setConversations(res.conversations))
       .catch((err) =>
         setError(
@@ -90,6 +107,7 @@ export default function Messages() {
             return;
           }
           try {
+            await markConversationRead(conversationId);
             const data = await api<{ messages: ChatMessage[] }>(
               `/chat/conversations/${conversationId}/messages`,
             );
@@ -120,6 +138,11 @@ export default function Messages() {
         payload.message.text,
         payload.message.createdAt,
       );
+      void markConversationRead(conversationId).catch((err) =>
+        setError(
+          err instanceof Error ? err.message : "Could not mark conversation read",
+        ),
+      );
     };
 
     socket.on("message:new", onMessage);
@@ -132,7 +155,7 @@ export default function Messages() {
       socket.off("connect", joinAndLoad);
       socket.emit("conversation:leave", conversationId);
     };
-  }, [conversationId, addMessage, bumpConversation]);
+  }, [conversationId, addMessage, bumpConversation, markConversationRead]);
 
   // Keep the newest message in view
   useEffect(() => {
