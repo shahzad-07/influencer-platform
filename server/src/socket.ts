@@ -89,3 +89,8 @@ export function emitNewMessage(conversationId: string, message: unknown) {
 export function emitNotification(userId: string, notification: unknown) {
   io?.to(userRoomName(userId)).emit("notification:new", notification);
 }
+
+// Tell a user's active app sessions to refresh their chat unread total.
+export function emitChatChanged(userId: string) {
+  io?.to(userRoomName(userId)).emit("chat:changed");
+}
