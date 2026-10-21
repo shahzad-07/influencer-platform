@@ -98,11 +98,12 @@ const actionSchema = z.object({
   action: z.enum(DEAL_ACTIONS),
   note: z.string().trim().max(1000).optional(),
   url: httpUrl.optional(),
+  // Optional. If given, it must look like a UTR; empty counts as not given.
   reference: z
     .string()
     .trim()
-    .regex(
-      /^[A-Za-z0-9-]{6,30}$/,
+    .refine(
+      (v) => v === "" || /^[A-Za-z0-9-]{6,30}$/.test(v),
       "Reference must be 6 to 30 letters, digits or dashes",
     )
     .optional(),
@@ -292,7 +293,7 @@ router.post("/:id/actions", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
   }
-  const { action, note = "", url, reference } = parsed.data;
+  const { action, note = "", url, reference = "" } = parsed.data;
   const { userId } = req.user!;
 
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -352,16 +353,13 @@ router.post("/:id/actions", async (req, res) => {
   // Claiming a payment: record it. The amount comes from the deal, never from the request.
   const sentStage = SENT_STAGE[action];
   if (sentStage) {
-    if (!reference) {
-      return res
-        .status(400)
-        .json({ message: "The payment reference (UTR) is required" });
-    }
     const payments = deal.payments ?? [];
 
+    // A reference is optional, but when given it can't be used twice on a deal
     if (
+      reference &&
       payments.some(
-        (p) => p.reference.toLowerCase() === reference.toLowerCase(),
+        (p) => (p.reference ?? "").toLowerCase() === reference.toLowerCase(),
       )
     ) {
       return res

@@ -1,6 +1,6 @@
 # Influencer platform: project notes
 
-Last updated: 2026-10-18. Repo: github.com/shahzad-07/influencer-platform (public, so never commit a `.env` file or a real password). Shahzad and a friend both work on `main`.
+Last updated: 2026-10-21. Repo: github.com/shahzad-07/influencer-platform (public, so never commit a `.env` file or a real password). Shahzad and a friend both work on `main`.
 
 ## Stack
 
@@ -44,10 +44,11 @@ Last updated: 2026-10-18. Repo: github.com/shahzad-07/influencer-platform (publi
   - Only failed logins count, so normal logins and tests are not affected.
   - Counts live in server memory. Restarting the server clears them (handy if you lock yourself out while testing). This only works for one server instance, and on a free host it also resets whenever the server spins down.
   - Optional env vars: `TRUST_PROXY=1` (set it when the server is behind a hosting proxy) and `RATE_LIMIT_OFF=1` (local testing only, never in production).
-- Terms page (draft): `client/src/pages/Terms.tsx`, a public `/terms` route in `client/src/App.tsx`, and a required "I agree to the Terms" checkbox on `client/src/pages/Signup.tsx`. The business name, contact email and city are placeholders in one block at the top of `Terms.tsx` and still need filling in. A lawyer must review the text before launch.
+- Terms page (draft): `client/src/pages/Terms.tsx`, a public `/terms` route in `client/src/App.tsx`, and a required "I agree to the Terms" checkbox on `client/src/pages/Signup.tsx`. The business name, contact email and city are filled in at the top of `Terms.tsx`. A lawyer must review the text before launch.
 - Test scripts no longer contain any default login. The influencer test account comes only from environment variables, through `server/scripts/test-env.mjs` (see "Test scripts" below).
+- Deal page "Next step" card (M1 part 2, `DealDetail.tsx`): at the top, shows "Your turn" with the buttons, or "Waiting for X"; the timeline is newest first. Whose turn it is comes from the server's `allowedActions` (cancel and dispute alone don't make it your turn), so there is no copy of the flow table on the client.
 
-## In progress: step 5, free-tier deploy
+## Step 5, free-tier deploy (done, smoke test passed)
 
 Decision: Render for both the server (Web Service) and the client (Static Site). Pieces, in order:
 
@@ -60,7 +61,7 @@ Decision: Render for both the server (Web Service) and the client (Static Site).
    - 5b. Client as a Render Static Site: DONE, live at `https://influencer-platform-web-7qdx.onrender.com`. Settings used: root directory `client`, build command `npm ci && npm run build`, publish directory `dist`, environment variables `VITE_API_URL` = `https://influencer-platform-api.onrender.com/api` and `NODE_VERSION=24`, and a Rewrite rule (source `/*`, destination `/index.html`, action Rewrite) so refreshing `/deals` does not give a 404. `VITE_API_URL` is baked in at build time, so if it ever changes the site must be rebuilt.
    - 5c. `CLIENT_URL` on the server = `https://influencer-platform-web-7qdx.onrender.com`: DONE. The server redeployed and its start-up warning about `CLIENT_URL` is gone.
    - 5d. `TRUST_PROXY=3`: DONE. Measured as 3 proxy hops, set as `TRUST_PROXY` = `3` on the Render server, and the temporary measuring code was removed again.
-6. Smoke test on the live site: sign up (never a `@test.com` address or a guessable password; use a strong password that is used nowhere else), make an offer, run a barter deal, check chat. TO DO. The accounts and deals made here are real rows in the production database, and there is no delete-account feature yet, so remove them in Atlas (database `influencerprod`) before real users arrive.
+6. Smoke test on the live site: sign up (never a `@test.com` address or a guessable password; use a strong password that is used nowhere else), make an offer, run a barter deal, check chat. DONE (passed). The accounts and deals made here are real rows in the production database, and there is no delete-account feature yet. STILL TO DO: remove them in Atlas (database `influencerprod`) before real users arrive.
 
 Things to remember:
 
@@ -73,7 +74,7 @@ Things to remember:
 - Atlas Network Access: a free Render service has no fixed outgoing IP, so the production cluster will probably need to allow access from anywhere (`0.0.0.0/0`), protected by a strong database password. A trade-off to accept knowingly.
 - Never put the production connection string in `server/.env` on a PC. It lives only on the hosting service. Never run test scripts against production.
 
-## UI redesign (in progress, UI only, no functionality changes)
+## UI redesign (code done; phone check still open)
 
 Brand: DealDoneHai, Bengaluru, dealdonehai@gmail.com. Tagline: "Brands meet creators. Deals get done." Free to start (no pricing claims beyond that yet). Look: violet `#5b3df5` and lime `#d4f55a`, fonts Bricolage Grotesque (headings) and Hanken Grotesk (body), light and dark theme (sun/moon toggle, saved in localStorage, defaults to the device setting). Phones: bottom tab bar after login; laptops: top menu. Only visible words change from "influencer" to "creator"; code names, the `INFLUENCER` role value, routes (`/influencer/...`) and file names stay.
 
@@ -103,7 +104,7 @@ If a change touches both sides, deploy the server first. Deploying a specific co
 
 Done one at a time, in this order. Each milestone ends with the type checks, tests, a browser check, a git step and, if the server changed, a manual deploy (server first, then client).
 
-1. M1, deal page and slow login (client, small)
+1. M1, deal page and slow login (client, small). Both parts DONE and pushed 2026-10-21; release (manual deploy of the client) pending.
    - Deal page: a "Next step" card at the top (who must act, with their buttons; the other side sees "Waiting for X"), and the timeline newest first.
    - Slow login/signup: first find the cause (free server waking up vs password hashing). Likely fixes: wake the server when the landing page opens, show a "waking up, can take a minute" message, later a keep-alive ping or a paid always-on server.
 2. M2, payment reference optional (server + client, small). The brand may leave it empty. Tests updated.
@@ -150,7 +151,6 @@ Not wanted: portfolio or reel hosting (the portfolio stays links only), SEO/grow
 
 - The old default login that was written in the test scripts is in the git history of a public repo, so it is permanently public. Never reuse that password anywhere. The scripts now have no defaults.
 - The brand and outsider test accounts (`brand@test.com`, `other@test.com`, `brand2@test.com`, password `password123`) are throwaway dev accounts. They must never exist on the production database.
-- Fill in the business name, contact email and city at the top of `Terms.tsx`.
 - The Terms checkbox is only checked in the browser. Later, record on the server when each user accepted and which version.
 - A privacy policy is also needed (personal data, India's DPDP Act). Get both documents reviewed by a lawyer.
 - Chat messages are not rate limited, and Socket.io is not covered by the limiter.
@@ -230,6 +230,7 @@ How to use this log:
 - 2026-10-20: Wrote the backlog from the owner's list as milestones M1 to M9 (see "Backlog and milestones"). No code changed. Next: M1.
 - 2026-10-20: M1 part 1 done: new `client/src/components/SlowNotice.tsx` (shows a "server may be waking up, up to a minute" note if a request takes more than 3 seconds), used in `Login.tsx` and `Signup.tsx`. Client only, no server change. Not deployed yet (release is manual). Next: M1 part 2, the "Next step" card at the top of the deal page and the timeline newest first.
 - 2026-10-21: Started a new chat for the next milestone with a handoff prompt. Updated "Starting a new chat with Claude". Next: M1 part 2, the deal page.
+- 2026-10-21: M1 part 2 done, client only: `client/src/pages/DealDetail.tsx` has a "Next step" card at the top ("Your turn" with the buttons, or "Waiting for X", plus a closing line for finished deals) that replaces the old "What's next" section, and the timeline is newest first. New `.next-step` class at the end of `client/src/index.css`. Whose turn it is comes from `allowedActions`, not from a table on the client. Also tidied stale lines in these notes (step 5 and the smoke test, UI redesign heading, Terms placeholders). Checked: `npx tsc --noEmit -p tsconfig.app.json` and a browser run-through on dev accounts. Not deployed yet. Next: manual release of M1 (client service only), then M2.
 
 ### Shazu's entries (the friend)
 

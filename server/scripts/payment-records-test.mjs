@@ -100,9 +100,7 @@ async function main() {
     (await act(infT, dealId, "accept")).status === 200,
   );
 
-  // ---- A reference is required and must look right ----
-  const noRef = await act(brandT, dealId, "markAdvanceSent");
-  check("A payment reference is required", noRef.status === 400, show(noRef));
+  // ---- A reference is optional, but if given it must look right ----
   for (const [label, bad] of [
     ["too short", "123"],
     ["with spaces", "bad ref 123"],
@@ -248,11 +246,10 @@ async function main() {
     (await getDeal(dealId)).status === "LINK_VERIFIED",
   );
 
-  const finalSent = await act(brandT, dealId, "markFinalSent", {
-    reference: ref(3),
-  });
+  // The reference is optional: claim the final payment without one
+  const finalSent = await act(brandT, dealId, "markFinalSent");
   check(
-    "Brand claims the final payment",
+    "Brand claims the final payment without a reference",
     finalSent.status === 200 && finalSent.data.status === "FINAL_SENT",
     show(finalSent),
   );
@@ -261,6 +258,11 @@ async function main() {
   check(
     "Final amount is the rest: 700001 paise",
     pf?.stage === "FINAL" && pf?.amount === 700001,
+    JSON.stringify(pf),
+  );
+  check(
+    "A payment claimed without a reference is stored with an empty one",
+    pf?.reference === "",
     JSON.stringify(pf),
   );
   check(
@@ -295,10 +297,17 @@ async function main() {
     })
   ).data.dealId;
   await act(infT, limitDeal, "accept");
+  // Attempts 1 and 2 have no reference (omitted, then an empty string), so
+  // empty references must not count as "already used"
   for (let i = 1; i <= 5; i++) {
-    await act(brandT, limitDeal, "markAdvanceSent", {
-      reference: ref(`L${i}`),
-    });
+    const extra =
+      i === 1 ? {} : i === 2 ? { reference: "" } : { reference: ref(`L${i}`) };
+    const r = await act(brandT, limitDeal, "markAdvanceSent", extra);
+    check(
+      `Attempt ${i} on the limit deal is accepted`,
+      r.status === 200,
+      show(r),
+    );
     await act(infT, limitDeal, "rejectAdvance");
   }
   const sixth = await act(brandT, limitDeal, "markAdvanceSent", {

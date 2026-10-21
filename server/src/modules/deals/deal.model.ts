@@ -35,7 +35,8 @@ const paymentSchema = new Schema(
       min: 0,
       validate: Number.isInteger,
     }, // paise
-    reference: { type: String, required: true, trim: true, maxlength: 30 },
+    // Optional: the brand may leave it empty (stored as an empty string)
+    reference: { type: String, trim: true, maxlength: 30, default: "" },
     sentAt: { type: Date, default: Date.now },
     sentBy: { type: Schema.Types.ObjectId, ref: "User" },
     status: {
