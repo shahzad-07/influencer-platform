@@ -244,6 +244,97 @@ svg {
   align-items: center;
   gap: 2px;
 }
+.notification-menu {
+  position: relative;
+  flex: none;
+}
+.notification-bell {
+  position: relative;
+  overflow: visible;
+}
+.notification-count {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  min-width: 19px;
+  height: 19px;
+  padding-inline: 4px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--on-lime);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.notification-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(70vh, 520px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.notification-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+.notification-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.notification-item {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.notification-item:last-child {
+  border-bottom: 0;
+}
+.notification-item.unread {
+  background: color-mix(in srgb, var(--surface) 72%, var(--bg));
+  box-shadow: inset 3px 0 var(--primary);
+}
+.notification-link {
+  display: grid;
+  gap: 2px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.notification-link:hover strong {
+  color: var(--link);
+}
+.notification-link time {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.notification-confirm {
+  margin-top: 8px;
+  min-height: 36px;
+  padding-inline: 14px;
+}
+.notification-empty {
+  padding: 18px 16px;
+}
+.notification-popover > .alert {
+  margin: 12px;
+}
 .icon-btn {
   width: 44px;
   height: 44px;
