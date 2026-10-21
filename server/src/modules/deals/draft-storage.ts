@@ -8,14 +8,14 @@ export const DRAFT_VIDEO_TYPES = [
 ] as const;
 export const DRAFT_BUCKET = process.env.SUPABASE_DRAFT_BUCKET ?? "deal-drafts";
 export const isDraftStorageConfigured = Boolean(
-  process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
+  process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY,
 );
 
 let storageClient: ReturnType<typeof createClient> | null = null;
 
 function getStorageClient() {
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {
     throw new Error("Draft storage is not configured");
   }
