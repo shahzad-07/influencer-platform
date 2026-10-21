@@ -20,6 +20,8 @@ import { UserModel } from "../users/user.model";
 import { ConversationModel } from "../chat/conversation.model";
 import { authenticate, requireRole } from "../auth/auth.middleware";
 import { PaymentDetailsModel } from "../payments/payment-details.model";
+import { NotificationModel } from "../notifications/notification.model";
+import { emitNotification } from "../../socket";
 
 const router = Router();
 
@@ -432,6 +434,30 @@ router.post("/:id/actions", async (req, res) => {
       message:
         "The deal was just changed by someone else. Refresh and try again.",
     });
+  }
+
+  // Notify the other deal participant only after the compare-and-set succeeds.
+  const recipientId = actor === "BRAND" ? deal.influencer : deal.brand;
+  try {
+    const notification = await NotificationModel.create({
+      recipient: recipientId,
+      deal: deal._id,
+      actor: userId,
+      action,
+    });
+    emitNotification(String(recipientId), {
+      id: String(notification._id),
+      dealId: String(deal._id),
+      dealTitle: deal.title,
+      action,
+      actorRole: actor,
+      createdAt: notification.createdAt,
+      readAt: null,
+    });
+  } catch {
+    // The deal action is already saved; don't report it as failed if only
+    // notification persistence or delivery fails.
+    console.error("Could not save or deliver deal notification");
   }
 
   res.json({
