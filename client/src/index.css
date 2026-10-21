@@ -1099,6 +1099,20 @@ svg {
   font-size: 0.75rem;
   font-weight: 700;
 }
+.chat-tab-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  line-height: 1;
+}
+.tabbar .chat-nav-count {
+  min-width: 18px;
+  height: 18px;
+  margin-left: 0;
+  padding: 0 5px;
+  font-size: 0.65rem;
+}
 .notification-tab {
   display: grid;
   grid-template-rows: 28px auto;
