@@ -9,6 +9,7 @@ const SOCKET_URL = "http://localhost:5000";
 let failed = false;
 let conversationId = null;
 const userIds = [];
+const overflowConversationIds = [];
 const sockets = [];
 
 const check = (name, ok) => {
@@ -141,6 +142,36 @@ async function main() {
   const senderList = await api("/chat/conversations", { token: brand.token });
   const senderConversation = senderList.data.conversations?.find((item) => item.id === conversationId);
   check("Sender's own message is not unread", senderConversation?.unreadCount === 0);
+
+  const creatorObjectId = new mongoose.Types.ObjectId(creator.id);
+  const epoch = new Date(0);
+  const overflowRows = Array.from({ length: 51 }, (_, index) => {
+    const id = new mongoose.Types.ObjectId();
+    overflowConversationIds.push(id);
+    return {
+      _id: id,
+      brand: new mongoose.Types.ObjectId(),
+      influencer: creatorObjectId,
+      lastMessageText: "",
+      lastMessageAt: new Date(Date.now() + (index + 1) * 1000),
+      brandLastReadAt: epoch,
+      influencerLastReadAt: epoch,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  });
+  await mongoose.connection.db.collection("conversations").insertMany(overflowRows);
+  await mongoose.connection.db.collection("messages").insertOne({
+    conversation: overflowConversationIds[0],
+    sender: overflowRows[0].brand,
+    text: "Unread message outside the visible list",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const overflowList = await api("/chat/conversations", { token: creator.token });
+  check("Conversation list remains capped at 50", overflowList.data.conversations?.length === 50);
+  check("Unread total includes a message outside the visible 50", overflowList.data.unreadTotal === 1 && !overflowList.data.conversations.some((item) => item.id === String(overflowConversationIds[0])));
 }
 
 try {
@@ -163,6 +194,14 @@ try {
 } finally {
   for (const socket of sockets) socket.close();
   if (mongoose.connection.db) {
+    if (overflowConversationIds.length) {
+      await mongoose.connection.db.collection("messages").deleteMany({
+        conversation: { $in: overflowConversationIds },
+      });
+      await mongoose.connection.db.collection("conversations").deleteMany({
+        _id: { $in: overflowConversationIds },
+      });
+    }
     if (conversationId) {
       const id = new mongoose.Types.ObjectId(conversationId);
       await mongoose.connection.db.collection("messages").deleteMany({ conversation: id });
