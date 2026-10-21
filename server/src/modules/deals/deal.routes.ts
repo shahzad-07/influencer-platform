@@ -174,6 +174,28 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
     statusHistory: [{ status: "OFFERED", by: brandId }],
   });
 
+  // Notify the creator that the brand sent an offer. Delivery is best-effort;
+  // the successfully created offer remains successful if notifications fail.
+  try {
+    const notification = await NotificationModel.create({
+      recipient: influencerId,
+      deal: deal._id,
+      actor: brandId,
+      action: "createOffer",
+    });
+    emitNotification(influencerId, {
+      id: String(notification._id),
+      dealId: String(deal._id),
+      dealTitle: deal.title,
+      action: "createOffer",
+      actorRole: "BRAND",
+      createdAt: notification.createdAt,
+      readAt: null,
+    });
+  } catch {
+    console.error("Could not save or deliver offer notification");
+  }
+
   res.status(201).json({ dealId: String(deal._id) });
 });
 
