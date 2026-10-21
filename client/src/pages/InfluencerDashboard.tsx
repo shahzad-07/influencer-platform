@@ -47,7 +47,7 @@ export default function InfluencerDashboard() {
           <li>
             <Link to="/influencer/payment-details">
               Payment details
-              <small>Saved safely, shared only when you choose</small>
+              <small>Saved safely; brands can view them when payment is due</small>
             </Link>
           </li>
         </ul>
