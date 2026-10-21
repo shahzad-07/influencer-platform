@@ -213,10 +213,26 @@ export default function Messages() {
                 key={c.id}
                 to={`/messages/${c.id}`}
                 className={
-                  c.id === conversationId ? "chat-item active" : "chat-item"
+                  [
+                    "chat-item",
+                    c.id === conversationId ? "active" : "",
+                    c.unreadCount > 0 ? "unread" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
                 }
               >
-                <strong>{c.otherUser.name}</strong>
+                <span className="chat-item-title">
+                  <strong>{c.otherUser.name}</strong>
+                  {c.unreadCount > 0 && (
+                    <span
+                      className="chat-unread-count"
+                      aria-label={`${c.unreadCount} unread messages`}
+                    >
+                      {c.unreadCount}
+                    </span>
+                  )}
+                </span>
                 <small>{c.lastMessageText || "No messages yet"}</small>
               </Link>
             ))}
