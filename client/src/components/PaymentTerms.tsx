@@ -45,7 +45,8 @@ export default function PaymentTerms({
               does not hold or move any money. It only records them: the brand
               marks the payment as sent after paying (adding the payment
               reference, such as a UTR, is optional), and the creator confirms
-              that it arrived.
+              that it arrived. The brand can view the creator’s saved payment
+              details at the relevant payment stage, and each view is recorded.
             </li>
           </ul>
         </>
