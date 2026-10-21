@@ -90,10 +90,12 @@ async function main() {
   const infId = (await api("/auth/me", { token: infT })).data.user._id;
 
   await mongoose.connect(process.env.MONGODB_URI);
+  const db = mongoose.connection.db;
+  if (!db) throw new Error("Could not connect to the development database");
   const oid = (s) => new mongoose.Types.ObjectId(s);
-  const sharesCol = () => mongoose.connection.db.collection("payment_shares");
-
   const dealIds = [];
+  const logsCol = db.collection("payment_share_logs");
+
   const newDeal = async (title, terms = {}) => {
     const r = await api("/deals", {
       method: "POST",
@@ -101,15 +103,19 @@ async function main() {
       body: {
         influencerId: infId,
         title,
-        brief: "Test brief for the payment share checks.",
+        brief: "Test brief for payment detail access checks.",
         amount: 500000,
         advancePercent: 50,
         ...terms,
       },
     });
+    if (r.status !== 201 || !r.data.dealId) {
+      throw new Error(`Could not create a test deal: ${show(r)}`);
+    }
     dealIds.push(r.data.dealId);
     return r.data.dealId;
   };
+
   let refCounter = 0;
   const act = (token, dealId, action, extra = {}) => {
     const needsRef = action === "markAdvanceSent" || action === "markFinalSent";
@@ -123,323 +129,194 @@ async function main() {
       body: { action, ...withRef },
     });
   };
-  const share = (dealId, stage, token = infT) =>
-    api("/payment-shares", { method: "POST", token, body: { dealId, stage } });
   const view = (dealId, stage, token = brandT) =>
     api(`/payment-shares/deal/${dealId}/${stage}/view`, { token });
   const status = (dealId, token) =>
     api(`/payment-shares/deal/${dealId}`, { token });
-  const revoke = (dealId, stage, token = infT) =>
-    api(`/payment-shares/deal/${dealId}/${stage}`, { method: "DELETE", token });
 
-  // Start with no saved details
-  await api("/payment-details/me", { method: "DELETE", token: infT });
+  try {
+    // Start with no saved details
+    await api("/payment-details/me", { method: "DELETE", token: infT });
 
-  // ---- Paid acceptance needs saved details; barter acceptance does not ----
-  const dealA = await newDeal("Share test A");
-  const noDetails = await act(infT, dealA, "accept");
-  check(
-    "Cannot accept a paid offer before saving payment details",
-    noDetails.status === 409 &&
-      /payment details/i.test(noDetails.data.message ?? ""),
-    show(noDetails),
-  );
-  const stillOffered = await api(`/deals/${dealA}`, { token: infT });
-  check(
-    "Paid offer stays offered when acceptance is blocked",
-    stillOffered.data.deal?.status === "OFFERED",
-    show(stillOffered),
-  );
+    // ---- Paid acceptance still requires details; barter does not ----
+    const dealA = await newDeal("Payment details test A");
+    const noDetails = await act(infT, dealA, "accept");
+    check(
+      "Cannot accept a paid offer before saving payment details",
+      noDetails.status === 409 &&
+        /payment details/i.test(noDetails.data.message ?? ""),
+      show(noDetails),
+    );
+    const stillOffered = await api(`/deals/${dealA}`, { token: infT });
+    check(
+      "Paid offer stays offered when acceptance is blocked",
+      stillOffered.data.deal?.status === "OFFERED",
+      show(stillOffered),
+    );
 
-  const barterDeal = await newDeal("Share test barter", {
-    collaborationType: "BARTER",
-    barterDescription: "A meal and a drink",
-  });
-  const barterAccept = await act(infT, barterDeal, "accept");
-  check(
-    "Can accept a barter offer without payment details",
-    barterAccept.status === 200 && barterAccept.data.status === "IN_PROGRESS",
-    show(barterAccept),
-  );
+    const barterDeal = await newDeal("Payment details barter", {
+      collaborationType: "BARTER",
+      barterDescription: "A meal and a drink",
+    });
+    const barterAccept = await act(infT, barterDeal, "accept");
+    check(
+      "Can accept a barter offer without payment details",
+      barterAccept.status === 200 && barterAccept.data.status === "IN_PROGRESS",
+      show(barterAccept),
+    );
 
-  const saved = await api("/payment-details/me", {
-    method: "PUT",
-    token: infT,
-    body: FAKE,
-  });
-  check("Influencer saves payment details", saved.status === 200, show(saved));
+    const saved = await api("/payment-details/me", {
+      method: "PUT",
+      token: infT,
+      body: FAKE,
+    });
+    check("Influencer saves payment details", saved.status === 200, show(saved));
 
-  const accepted = await act(infT, dealA, "accept");
-  check(
-    "Can accept a paid offer after saving payment details",
-    accepted.status === 200 && accepted.data.status === "ACCEPTED",
-    show(accepted),
-  );
+    const accepted = await act(infT, dealA, "accept");
+    check(
+      "Can accept a paid offer after saving payment details",
+      accepted.status === 200 && accepted.data.status === "ACCEPTED",
+      show(accepted),
+    );
 
-  const dealB = await newDeal("Share test B (still an offer)");
-  check(
-    "Cannot share on a deal that is only an offer",
-    (await share(dealB, "ADVANCE")).status === 409,
-  );
-  check(
-    "Cannot share the final stage during the advance stage",
-    (await share(dealA, "FINAL")).status === 409,
-  );
-  check(
-    "A brand cannot share",
-    (await share(dealA, "ADVANCE", brandT)).status === 403,
-  );
-  check(
-    "Another influencer cannot share on this deal",
-    (await share(dealA, "ADVANCE", otherInfT)).status === 404,
-  );
-  check(
-    "Unknown stage is rejected",
-    (await share(dealA, "MIDDLE")).status === 400,
-  );
-  check(
-    "Bad deal id is rejected",
-    (await share("abc", "ADVANCE")).status === 400,
-  );
+    // ---- Direct access is available without a creator sharing each time ----
+    const viewed = await view(dealA, "ADVANCE");
+    check(
+      "Brand sees the full details at the advance stage",
+      viewed.status === 200 &&
+        viewed.data.details?.accountNumber === FAKE.accountNumber &&
+        viewed.data.details?.ifsc === FAKE.ifsc &&
+        viewed.data.details?.upiId === FAKE.upiId,
+      show(viewed),
+    );
+    check(
+      "The advance amount is returned as whole paise",
+      viewed.data.amountDue === 250000,
+      String(viewed.data.amountDue),
+    );
+    const uri = viewed.data.upiUri ?? "";
+    check(
+      "The UPI link has the amount and UPI ID",
+      uri.startsWith("upi://pay?") &&
+        uri.includes("am=2500.00") &&
+        decodeURIComponent(uri).includes(FAKE.upiId),
+      uri,
+    );
+    check(
+      "The response is marked no-store and has no share expiry",
+      (viewed.headers.get("cache-control") ?? "").includes("no-store") &&
+        !("expiresAt" in viewed.data),
+    );
+    check("A lowercase stage works", (await view(dealA, "advance")).status === 200);
+    check(
+      "A final-stage view is blocked during the advance stage",
+      (await view(dealA, "FINAL")).status === 409,
+    );
+    check("An invalid stage is rejected", (await view(dealA, "MIDDLE")).status === 400);
+    check("An invalid deal id is rejected", (await view("abc", "ADVANCE")).status === 400);
 
-  // ---- A valid share ----
-  const shared = await share(dealA, "ADVANCE");
-  const hours =
-    (new Date(shared.data.expiresAt).getTime() - Date.now()) / 3600000;
-  check(
-    "Influencer shares the advance details",
-    shared.status === 201,
-    show(shared),
-  );
-  check(
-    "The share lasts 6 hours",
-    hours > 5.98 && hours <= 6.001,
-    `${hours.toFixed(3)} hours`,
-  );
-  const again = await share(dealA, "ADVANCE");
-  check(
-    "Sharing again while a share is open is refused",
-    again.status === 409,
-    show(again),
-  );
+    const oldShare = await api("/payment-shares", {
+      method: "POST",
+      token: infT,
+      body: { dealId: dealA, stage: "ADVANCE" },
+    });
+    check("The old creator share endpoint is removed", oldShare.status === 404);
 
-  // ---- Status endpoint: no bank details in it ----
-  const brandStatus = await status(dealA, brandT);
-  check(
-    "Brand sees that the advance is shared",
-    brandStatus.status === 200 &&
-      brandStatus.data.shares?.some((s) => s.stage === "ADVANCE"),
-    show(brandStatus),
-  );
-  check(
-    "The status response holds no bank details",
-    !JSON.stringify(brandStatus.data).includes(FAKE.accountNumber) &&
-      !JSON.stringify(brandStatus.data).includes(FAKE.upiId),
-  );
-  check(
-    "An outsider cannot see the deal's share status",
-    (await status(dealA, otherInfT)).status === 404,
-  );
-  check(
-    "Another brand cannot see it either",
-    (await status(dealA, brand2T)).status === 404,
-  );
+    // ---- Access is restricted to this deal's brand ----
+    check("An influencer cannot view the details", (await view(dealA, "ADVANCE", infT)).status === 403);
+    check("Another influencer cannot view the details", (await view(dealA, "ADVANCE", otherInfT)).status === 403);
+    check("Another brand cannot view the details", (await view(dealA, "ADVANCE", brand2T)).status === 404);
+    check("An outsider cannot read the audit log", (await status(dealA, otherInfT)).status === 404);
+    check("Another brand cannot read the audit log", (await status(dealA, brand2T)).status === 404);
+    check(
+      "A logged-out visitor cannot view the details",
+      (await api(`/payment-shares/deal/${dealA}/ADVANCE/view`)).status === 401,
+    );
 
-  // ---- The brand's view ----
-  const viewed = await view(dealA, "ADVANCE");
-  check(
-    "Brand sees the full details",
-    viewed.status === 200 &&
-      viewed.data.details?.accountNumber === FAKE.accountNumber &&
-      viewed.data.details?.ifsc === FAKE.ifsc &&
-      viewed.data.details?.upiId === FAKE.upiId,
-    show(viewed),
-  );
-  check(
-    "The advance amount due is 250000 paise",
-    viewed.data.amountDue === 250000,
-    String(viewed.data.amountDue),
-  );
-  const uri = viewed.data.upiUri ?? "";
-  check(
-    "The UPI link has the right amount and UPI ID",
-    uri.startsWith("upi://pay?") &&
-      uri.includes("am=2500.00") &&
-      decodeURIComponent(uri).includes(FAKE.upiId),
-    uri,
-  );
-  check(
-    "The response is marked no-store",
-    (viewed.headers.get("cache-control") ?? "").includes("no-store"),
-  );
-  check(
-    "A lowercase stage in the URL works too",
-    (await view(dealA, "advance")).status === 200,
-  );
-  check(
-    "Viewing the final stage fails (only the advance is shared)",
-    (await view(dealA, "FINAL")).status === 404,
-  );
-  check(
-    "An influencer cannot use the brand's view",
-    (await view(dealA, "ADVANCE", infT)).status === 403,
-  );
-  check(
-    "Another influencer cannot either",
-    (await view(dealA, "ADVANCE", otherInfT)).status === 403,
-  );
-  check(
-    "Another brand gets nothing",
-    (await view(dealA, "ADVANCE", brand2T)).status === 404,
-  );
-  check(
-    "A logged-out visitor is blocked",
-    (await api(`/payment-shares/deal/${dealA}/ADVANCE/view`)).status === 401,
-  );
+    // Each successful view is recorded, while the log contains no payment data.
+    const logRes = await status(dealA, infT);
+    const brandViews = logRes.data.log?.filter(
+      (entry) => entry.event === "VIEWED" && entry.by === "BRAND",
+    );
+    check("Every successful view appears in the creator's log", brandViews?.length === 2, show(logRes));
+    check(
+      "The audit log contains no bank details",
+      !JSON.stringify(logRes.data.log).includes(FAKE.accountNumber) &&
+        !JSON.stringify(logRes.data.log).includes(FAKE.upiId),
+    );
+    check("The response no longer lists active shares", !("shares" in logRes.data));
 
-  // ---- Audit trail ----
-  const logRes = await status(dealA, infT);
-  check(
-    "The log records the share and the brand's views",
-    logRes.data.log?.some(
-      (l) => l.event === "SHARED" && l.by === "INFLUENCER",
-    ) && logRes.data.log?.some((l) => l.event === "VIEWED" && l.by === "BRAND"),
-    show(logRes),
-  );
-  check(
-    "The log holds no bank details",
-    !JSON.stringify(logRes.data.log).includes(FAKE.accountNumber),
-  );
+    // A saved payment method alone doesn't let a brand view an unaccepted offer.
+    const dealB = await newDeal("Payment details test B (offer)");
+    check(
+      "A brand cannot view details before this offer is accepted",
+      (await view(dealB, "ADVANCE")).status === 409,
+    );
 
-  // ---- Expiry (the code must not depend on MongoDB's slow cleanup) ----
-  await sharesCol().updateOne(
-    { deal: oid(dealA), stage: "ADVANCE" },
-    { $set: { expiresAt: new Date(Date.now() - 1000) } },
-  );
-  check(
-    "An expired share cannot be viewed, even before MongoDB cleans it up",
-    (await view(dealA, "ADVANCE")).status === 404,
-  );
-  const afterExpiry = await status(dealA, brandT);
-  check(
-    "An expired share is not listed as open",
-    afterExpiry.data.shares?.length === 0,
-    show(afterExpiry),
-  );
-  const reshare = await share(dealA, "ADVANCE");
-  check(
-    "The influencer can share again after expiry",
-    reshare.status === 201,
-    show(reshare),
-  );
-  check(
-    "The brand can view the new share",
-    (await view(dealA, "ADVANCE")).status === 200,
-  );
+    // ---- Access closes outside the payment stage and returns when it is due again ----
+    check(
+      "Advance details close once the brand marks payment sent",
+      (await act(brandT, dealA, "markAdvanceSent")).status === 200 &&
+        (await view(dealA, "ADVANCE")).status === 409,
+    );
+    check(
+      "Advance details reopen if the creator says payment was not received",
+      (await act(infT, dealA, "rejectAdvance")).status === 200 &&
+        (await view(dealA, "ADVANCE")).status === 200,
+    );
 
-  // ---- Revoking ----
-  check(
-    "A brand cannot end a share",
-    (await revoke(dealA, "ADVANCE", brandT)).status === 403,
-  );
-  check(
-    "The influencer ends the share early",
-    (await revoke(dealA, "ADVANCE")).status === 200,
-  );
-  check(
-    "The brand can no longer view the details",
-    (await view(dealA, "ADVANCE")).status === 404,
-  );
-  check(
-    "Ending a share twice gives 404",
-    (await revoke(dealA, "ADVANCE")).status === 404,
-  );
-  const afterRevoke = await status(dealA, infT);
-  check(
-    "The log records the early end",
-    afterRevoke.data.log?.some((l) => l.event === "REVOKED"),
-    show(afterRevoke),
-  );
-  check(
-    "The influencer can share again after ending one",
-    (await share(dealA, "ADVANCE")).status === 201,
-  );
+    await act(brandT, dealA, "markAdvanceSent");
+    await act(infT, dealA, "confirmAdvance");
+    await act(infT, dealA, "submitDraft", {
+      url: "https://example.com/draft",
+    });
+    await act(brandT, dealA, "approveDraft");
+    await act(infT, dealA, "submitLink", {
+      url: "https://example.com/post",
+    });
+    const verified = await act(brandT, dealA, "verifyLink");
+    check(
+      "The deal reaches the final payment stage",
+      verified.status === 200 && verified.data.status === "LINK_VERIFIED",
+      show(verified),
+    );
+    check(
+      "Advance details are unavailable at the final stage",
+      (await view(dealA, "ADVANCE")).status === 409,
+    );
+    const finalView = await view(dealA, "FINAL");
+    check(
+      "Brand sees final details at the final stage",
+      finalView.status === 200 &&
+        finalView.data.amountDue === 250000 &&
+        finalView.data.upiUri.includes("am=2500.00"),
+      show(finalView),
+    );
 
-  // ---- Moving through the deal ----
-  check(
-    "Brand marks the advance sent",
-    (await act(brandT, dealA, "markAdvanceSent")).status === 200,
-  );
-  const afterSent = await view(dealA, "ADVANCE");
-  check(
-    "Details close once the deal moves past the advance stage",
-    afterSent.status === 409,
-    show(afterSent),
-  );
-  check(
-    "Influencer says 'not received'",
-    (await act(infT, dealA, "rejectAdvance")).status === 200,
-  );
-  check(
-    "Details open again when the deal returns to the advance stage",
-    (await view(dealA, "ADVANCE")).status === 200,
-  );
-
-  await act(brandT, dealA, "markAdvanceSent");
-  await act(infT, dealA, "confirmAdvance");
-  await act(infT, dealA, "submitDraft", { url: "https://example.com/draft" });
-  await act(brandT, dealA, "approveDraft");
-  await act(infT, dealA, "submitLink", { url: "https://example.com/post" });
-  const verified = await act(brandT, dealA, "verifyLink");
-  check(
-    "The deal reaches the final payment stage",
-    verified.status === 200 && verified.data.status === "LINK_VERIFIED",
-    show(verified),
-  );
-  check(
-    "The old advance share is useless now",
-    (await view(dealA, "ADVANCE")).status === 409,
-  );
-
-  check(
-    "The influencer shares the final details",
-    (await share(dealA, "FINAL")).status === 201,
-  );
-  const finalView = await view(dealA, "FINAL");
-  check(
-    "The final amount due is 250000 paise",
-    finalView.status === 200 &&
-      finalView.data.amountDue === 250000 &&
-      finalView.data.upiUri.includes("am=2500.00"),
-    show(finalView),
-  );
-
-  // ---- Deleting the details ends every share ----
-  const del = await api("/payment-details/me", {
-    method: "DELETE",
-    token: infT,
-  });
-  check("Influencer deletes the saved payment details", del.status === 200);
-  check(
-    "The brand can no longer view the details",
-    (await view(dealA, "FINAL")).status === 404,
-  );
-  check(
-    "Every share for that influencer is gone from the database",
-    (await sharesCol().countDocuments({ deal: oid(dealA) })) === 0,
-  );
-
-  // ---- Database setup ----
-  const indexes = await sharesCol().indexes();
-  check(
-    "The automatic-deletion (TTL) index exists",
-    indexes.some((i) => i.key?.expiresAt === 1 && i.expireAfterSeconds === 0),
-    JSON.stringify(indexes.map((i) => i.key)),
-  );
-
-  // ---- Clean up ----
-  await sharesCol().deleteMany({ deal: { $in: dealIds.map(oid) } });
-  await mongoose.disconnect();
+    const del = await api("/payment-details/me", {
+      method: "DELETE",
+      token: infT,
+    });
+    check("Creator can delete saved details", del.status === 200);
+    check(
+      "The brand cannot view details after they are deleted",
+      (await view(dealA, "FINAL")).status === 404,
+    );
+    const finalLog = await status(dealA, infT);
+    check(
+      "The creator's view log remains after deleting details",
+      finalLog.data.log?.some(
+        (entry) => entry.event === "VIEWED" && entry.stage === "FINAL",
+      ),
+      show(finalLog),
+    );
+  } finally {
+    const ids = dealIds.map(oid);
+    await db.collection("payment_shares").deleteMany({ deal: { $in: ids } });
+    await logsCol.deleteMany({ deal: { $in: ids } });
+    await db.collection("deals").deleteMany({ _id: { $in: ids } });
+    await mongoose.disconnect();
+  }
 
   console.log(failed ? "\nSome checks FAILED" : "\nAll checks passed");
   process.exit(failed ? 1 : 0);
