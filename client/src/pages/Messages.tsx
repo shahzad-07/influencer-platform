@@ -71,17 +71,35 @@ export default function Messages() {
     );
   }, []);
 
-  // Load my conversation list
+  // Load and refresh my conversation list when chat data changes live
   useEffect(() => {
-    api<{ conversations: ConversationItem[]; unreadTotal: number }>(
-      "/chat/conversations",
-    )
-      .then((res) => setConversations(res.conversations))
-      .catch((err) =>
-        setError(
-          err instanceof Error ? err.message : "Could not load conversations",
-        ),
-      );
+    let cancelled = false;
+    const refreshConversations = async () => {
+      try {
+        const res = await api<{
+          conversations: ConversationItem[];
+          unreadTotal: number;
+        }>("/chat/conversations");
+        if (!cancelled) setConversations(res.conversations);
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : "Could not load conversations",
+          );
+        }
+      }
+    };
+
+    const socket = getSocket();
+    socket.on("chat:changed", refreshConversations);
+    socket.on("connect", refreshConversations);
+    void refreshConversations();
+
+    return () => {
+      cancelled = true;
+      socket.off("chat:changed", refreshConversations);
+      socket.off("connect", refreshConversations);
+    };
   }, []);
 
   // Open the selected conversation: join its room, load history, listen for new messages
