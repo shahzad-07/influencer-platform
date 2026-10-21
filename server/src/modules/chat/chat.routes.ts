@@ -98,14 +98,20 @@ router.get("/conversations", async (req, res) => {
     .lean();
   const nameById = new Map(users.map((u) => [String(u._id), u.name]));
 
-  const unreadCounts = conversations.length
+  const allConversations = await ConversationModel.find({
+    $or: [{ brand: userId }, { influencer: userId }],
+  })
+    .select("_id brandLastReadAt influencerLastReadAt")
+    .lean();
+
+  const unreadCounts = allConversations.length
     ? await MessageModel.aggregate<{
         _id: mongoose.Types.ObjectId;
         count: number;
       }>([
         {
           $match: {
-            $or: conversations.map((conversation) => ({
+            $or: allConversations.map((conversation) => ({
               conversation: conversation._id,
               sender: { $ne: new mongoose.Types.ObjectId(userId) },
               createdAt: {
