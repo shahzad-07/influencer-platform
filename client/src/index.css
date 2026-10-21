@@ -335,6 +335,11 @@ svg {
 .notification-popover > .alert {
   margin: 12px;
 }
+@media (max-width: 899px) {
+  .header-actions > .notification-menu {
+    display: none;
+  }
+}
 .icon-btn {
   width: 44px;
   height: 44px;
@@ -1077,6 +1082,44 @@ svg {
   text-decoration: none;
   font-size: 0.75rem;
   font-weight: 700;
+}
+.notification-tab {
+  display: grid;
+  grid-template-rows: 28px auto;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px 1px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.tabbar .notification-menu {
+  display: contents;
+}
+.tabbar .notification-bell {
+  width: 44px;
+  height: 28px;
+  border-radius: 10px;
+}
+.tabbar .notification-bell[aria-expanded="true"] {
+  color: var(--primary);
+}
+.tabbar .notification-bell svg {
+  width: 22px;
+  height: 22px;
+}
+.tabbar .notification-count {
+  top: -2px;
+  right: 2px;
+}
+.tabbar .notification-popover {
+  position: fixed;
+  top: auto;
+  right: 8px;
+  bottom: calc(64px + env(safe-area-inset-bottom));
 }
 .tabbar a svg {
   width: 22px;
