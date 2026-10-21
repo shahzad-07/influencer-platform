@@ -98,7 +98,34 @@ router.get("/conversations", async (req, res) => {
     .lean();
   const nameById = new Map(users.map((u) => [String(u._id), u.name]));
 
+  const unreadCounts = conversations.length
+    ? await MessageModel.aggregate<{
+        _id: mongoose.Types.ObjectId;
+        count: number;
+      }>([
+        {
+          $match: {
+            $or: conversations.map((conversation) => ({
+              conversation: conversation._id,
+              sender: { $ne: new mongoose.Types.ObjectId(userId) },
+              createdAt: {
+                $gt:
+                  (role === "BRAND"
+                    ? conversation.brandLastReadAt
+                    : conversation.influencerLastReadAt) ?? new Date(0),
+              },
+            })),
+          },
+        },
+        { $group: { _id: "$conversation", count: { $sum: 1 } } },
+      ])
+    : [];
+  const unreadByConversation = new Map(
+    unreadCounts.map((item) => [String(item._id), item.count]),
+  );
+
   res.json({
+    unreadTotal: unreadCounts.reduce((total, item) => total + item.count, 0),
     conversations: conversations.map((c) => ({
       id: String(c._id),
       otherUser: {
@@ -107,6 +134,7 @@ router.get("/conversations", async (req, res) => {
       },
       lastMessageText: c.lastMessageText,
       lastMessageAt: c.lastMessageAt,
+      unreadCount: unreadByConversation.get(String(c._id)) ?? 0,
     })),
   });
 });
