@@ -83,6 +83,12 @@ async function main() {
   const before = await api("/notifications", { token: brand.token });
   check("Brand can list notifications and unread count", before.status === 200 && Array.isArray(before.data.notifications) && Number.isInteger(before.data.unreadCount));
 
+  const creatorBefore = await api("/notifications", { token: influencer.token });
+  check("Creator can list notifications and unread count", creatorBefore.status === 200 && Array.isArray(creatorBefore.data.notifications) && Number.isInteger(creatorBefore.data.unreadCount));
+
+  const creatorOfferEvent = waitFor(influencerSocket, "notification:new");
+  const brandOfferEvent = waitFor(brandSocket, "notification:new", 1200);
+  const outsiderOfferEvent = waitFor(outsiderSocket, "notification:new", 1200);
   const created = await api("/deals", {
     method: "POST",
     token: brand.token,
@@ -99,6 +105,20 @@ async function main() {
   dealId = created.data.dealId;
   check("Test barter offer created", created.status === 201 && Boolean(dealId));
   if (!dealId) return;
+
+  const [creatorOffer, brandOffer, outsiderOffer] = await Promise.all([
+    creatorOfferEvent,
+    brandOfferEvent,
+    outsiderOfferEvent,
+  ]);
+  check("Creator receives the live offer notification", creatorOffer?.dealId === dealId && creatorOffer?.action === "createOffer" && creatorOffer?.actorRole === "BRAND");
+  check("Brand does not receive its own offer notification", brandOffer === null);
+  check("Outsider receives no offer notification", outsiderOffer === null);
+
+  const creatorOfferList = await api("/notifications", { token: influencer.token });
+  const offerItem = creatorOfferList.data.notifications?.find((n) => n.dealId === dealId && n.action === "createOffer");
+  check("Offer notification is persisted for the creator", Boolean(offerItem && offerItem.readAt === null));
+  check("Creator unread count increases for the offer", creatorOfferList.data.unreadCount === creatorBefore.data.unreadCount + 1);
 
   const brandEvent = waitFor(brandSocket, "notification:new");
   const influencerEvent = waitFor(influencerSocket, "notification:new", 1200);
