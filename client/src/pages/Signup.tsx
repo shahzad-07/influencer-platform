@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import type { Role } from "../context/AuthContext";
 import SiteHeader from "../components/SiteHeader";
+import SlowNotice from "../components/SlowNotice";
 
 export default function Signup() {
   const { register } = useAuth();
@@ -132,6 +133,9 @@ export default function Signup() {
             >
               {submitting ? "Creating account..." : "Sign up"}
             </button>
+
+            {/* Appears only if the server takes more than a few seconds */}
+            {submitting && <SlowNotice />}
           </form>
 
           <p className="auth-foot">

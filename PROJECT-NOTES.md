@@ -24,7 +24,7 @@ Last updated: 2026-10-18. Repo: github.com/shahzad-07/influencer-platform (publi
 - Authorization is enforced on the server (`authenticate` + `requireRole`). The UI only reflects it. Pricing is visible to brands only.
 - Money is whole paise (integers). Payment amounts come from the deal, never from the request.
 - The deal flow is one table in `server/src/modules/deals/deal.transitions.ts`. The server returns `allowedActions` and the deal page shows only those buttons.
-- No in-app payment gateway. The influencer saves payment details (encrypted AES-256-GCM, key `PAYMENT_ENCRYPTION_KEY` in `server/.env`) and shares them with a brand for a fixed 6 hours. The brand pays outside the app and enters a UTR. The influencer confirms or says "not received". Every view is logged.  PLANNED CHANGE (milestone M3): the 6-hour share goes away. See "Backlog and milestones". Don't change this rule until M3 is built.
+- No in-app payment gateway. The influencer saves payment details (encrypted AES-256-GCM, key `PAYMENT_ENCRYPTION_KEY` in `server/.env`) and shares them with a brand for a fixed 6 hours. The brand pays outside the app and enters a UTR. The influencer confirms or says "not received". Every view is logged. PLANNED CHANGE (milestone M3): the 6-hour share goes away. See "Backlog and milestones". Don't change this rule until M3 is built.
 - Collaboration types: PAID, BARTER, PAID_AND_BARTER. Barter-only skips payment steps (accept goes to IN_PROGRESS, verifyLink completes the deal).
 - Mongo: bounded lists are embedded (portfolio, status history, payment records). Unbounded ones (chat messages) are separate collections.
 - Scripts in `server/scripts` test everything.
@@ -228,6 +228,7 @@ How to use this log:
 - 2026-10-17: Step 5 piece 4 done (production database set up in Atlas, no code changes). Nothing to pull or run. The connection string is not in the repo and must stay out of it. Next: piece 5, the deploy on Render, starting with new production values for `JWT_SECRET` and `PAYMENT_ENCRYPTION_KEY`.
 - 2026-10-20: `TRUST_PROXY=3` is set on the Render server (measured earlier, measuring code removed). Auto-Deploy is now Off on both Render services, so releases are manual (see "Deploying (manual)"). Did a manual deploy of both services afterwards. Next: smoke test on the live site, then the public-launch gaps (offer expiry check, password reset, privacy policy, disputes).
 - 2026-10-20: Wrote the backlog from the owner's list as milestones M1 to M9 (see "Backlog and milestones"). No code changed. Next: M1.
+- 2026-10-20: M1 part 1 done: new `client/src/components/SlowNotice.tsx` (shows a "server may be waking up, up to a minute" note if a request takes more than 3 seconds), used in `Login.tsx` and `Signup.tsx`. Client only, no server change. Not deployed yet (release is manual). Next: M1 part 2, the "Next step" card at the top of the deal page and the timeline newest first.
 
 ### Shazu's entries (the friend)
 

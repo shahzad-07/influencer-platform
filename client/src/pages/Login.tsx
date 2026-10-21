@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import SiteHeader from "../components/SiteHeader";
+import SlowNotice from "../components/SlowNotice";
 
 export default function Login() {
   const { login } = useAuth();
@@ -71,6 +72,9 @@ export default function Login() {
             >
               {submitting ? "Logging in..." : "Log in"}
             </button>
+
+            {/* Appears only if the server takes more than a few seconds */}
+            {submitting && <SlowNotice />}
           </form>
 
           <p className="auth-foot">
