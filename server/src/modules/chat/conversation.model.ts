@@ -6,6 +6,9 @@ const conversationSchema = new Schema(
     influencer: { type: Schema.Types.ObjectId, ref: "User", required: true },
     lastMessageText: { type: String, default: "" },
     lastMessageAt: { type: Date, default: Date.now },
+    // Each participant tracks their own read position for unread counts.
+    brandLastReadAt: { type: Date, default: Date.now },
+    influencerLastReadAt: { type: Date, default: Date.now },
   },
   { timestamps: true },
 );
