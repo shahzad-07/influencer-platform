@@ -6,7 +6,7 @@ import SiteFooter from "../components/SiteFooter";
 const BUSINESS_NAME = "DealDoneHai";
 const CONTACT_EMAIL = "dealdonehai@gmail.com";
 const CITY = "Bengaluru";
-const LAST_UPDATED = "2026-10-18";
+const LAST_UPDATED = "2026-10-22";
 // ------------------------------------------------------------------
 
 interface Section {
@@ -42,16 +42,15 @@ const SECTIONS: Section[] = [
     title: "4. Payments",
     paragraphs: [
       "Payments are made directly between the brand and the creator, outside the platform, for example by UPI or bank transfer. The platform never holds, moves or guarantees any money.",
-      "The platform only records payments. After paying, the brand enters a payment reference (such as a UTR). The creator then confirms that the money arrived, or says that it did not.",
+      "The platform only records payments. After paying, the brand may enter a payment reference (such as a UTR); this is optional. The creator then confirms that the money arrived, or says that it did not.",
       "The amounts come from the offer, in rupees. Any taxes, such as GST or TDS, are the responsibility of the brand and the creator.",
     ],
   },
   {
     title: "5. Payment details",
     paragraphs: [
-      "A creator can save payment details (such as UPI or bank details). They are stored encrypted. They are hidden by default and are shown to a brand only when the creator chooses to share them for a deal.",
-      "A share lasts 6 hours and cannot be extended by the brand. Every time the details are viewed, we log it.",
-      "Use the shared details only to pay that deal. Do not copy, keep or pass them on.",
+      "A creator may add payment details (such as UPI or bank details) after signing up, but must save them before accepting a paid offer. They are stored encrypted and hidden by default. For a paid deal, the brand can view them at the relevant payment stage: the advance after acceptance and the final payment after the post is verified as live. Every view is recorded.",
+      "Use the payment details only to pay that deal. Do not copy, keep or pass them on.",
     ],
   },
   {
