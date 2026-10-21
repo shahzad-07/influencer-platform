@@ -126,7 +126,8 @@ Done one at a time, in this order. Each milestone ends with the type checks, tes
 6. M6, draft file upload (server + client, large)
    - Drafts only. The portfolio stays links only.
    - The browser uploads straight to object storage with a short-lived signed URL, so the server never handles the video. Size and type limits. Each submission is a version. The brand watches it in the app. Files are deleted some time after the deal ends.
-   - First compare storage providers and their free limits (not checked yet).
+   - Provider comparison on 2026-10-22: Cloudflare R2 includes 10 GB-month Standard storage, 1 million Class A operations and 10 million Class B operations monthly, with no egress charge; presigned PUT URLs support direct browser upload. Supabase Storage Free includes 1 GB storage, 5 GB cached plus 5 GB uncached egress, a 50 MB max upload, and free projects pause after one week inactive; signed upload URLs are supported.
+   - The owner confirmed draft links should remain as a fallback and selected Supabase Storage on 2026-10-22. Supabase can enforce the strict 1 MB size and video MIME restrictions at the bucket, while Cloudflare R2 has 10x free storage and no egress charges but our R2 flow must verify uploaded size server-side and remove oversize objects. Supabase Free projects pause after one week inactive; R2 charges usage above its monthly free allowance. Source pages: https://supabase.com/docs/guides/storage/buckets/creating-buckets ; https://supabase.com/docs/guides/platform/billing-on-supabase ; https://developers.cloudflare.com/r2/pricing/ ; https://developers.cloudflare.com/r2/api/s3/presigned-urls/ ; https://supabase.com/docs/guides/storage/uploads/resumable-uploads
 7. M7, calendar (server + client, medium)
    - Schedule items on a deal (shoot, visit, go-live). Either side proposes a date and time, the other accepts or suggests another. Accepted items show on both calendars (month and list). Stored inside the deal. Times in IST. Notifications on proposals and changes.
 8. M8, brand campaigns / broadcast (server + client, large)
@@ -138,7 +139,7 @@ Separate track before real users sign up: clean the test data in production, a p
 
 Small later fix: logging in as a second account in the same browser silently replaces the first tab's login. Show a "signed in as another account" message.
 
-To confirm at the start of each milestone: M5 (the list shows conversations only), M6 (provider, whether links stay as a fallback), M7 (which kinds of schedule items), M8 (creators apply, or the brand invites). M3 is confirmed: payment details are optional at signup, but required before a creator accepts a paid offer.
+To confirm at the start of each milestone: M6 Supabase Storage selected and links as fallback confirmed 2026-10-22, M7 (which kinds of schedule items), M8 (creators apply, or the brand invites). M3 is confirmed: payment details are optional at signup, but required before a creator accepts a paid offer. M5 is complete.
 
 ## Next
 
@@ -306,3 +307,6 @@ How to use this log:
 - 2026-10-22 (Shazu): Updated `client/src/pages/Messages.tsx` to reload the conversation list on `chat:changed` and socket reconnect, so latest previews, ordering and row unread counts refresh while the page is open. Checked: first-line check, `npx tsc --noEmit -p tsconfig.app.json`, and `npm run build` in `client/` passed. Browser check remains for M5 completion.
 - 2026-10-22 (Shazu): The owner reported the M5 local browser check passed: the list showed existing conversations newest-first, previews and unread counts updated live, opening a conversation cleared unread, and messages received while open were marked read. M5 is ready for manual deployment; deploy the server first, then the client. Mark it done after both services are live.
 - 2026-10-22 (Shazu): M5 deployed: the owner reported the server and client are both Live after deploying the server first. We verified the API health endpoint and client homepage both returned HTTP 200. M5 is complete. Next milestone: M6; ask the start-of-milestone questions about the storage provider and whether links remain as a fallback.
+- 2026-10-22 (Shazu): Compared Cloudflare R2 and Supabase Storage free tiers for M6. R2 provides 10 GB-month Standard storage with free egress and presigned PUT uploads; Supabase Free has 1 GB storage, 10 GB combined cached/uncached egress, a 50 MB plan cap, and pauses projects after 1 week idle. Supabase also enforces per-bucket size and MIME limits, which fits the strict 1 MB cap; an R2 implementation would need server-side verification and removal of oversize objects. Owner confirmed links stay as fallback. Owner selected Supabase Storage on 2026-10-22; draft links remain a fallback. Official sources are listed in the M6 backlog.
+
+- 2026-10-22 (Codex, with Shahzad): M6 start decisions confirmed: use Supabase Storage and keep draft links as a fallback. No code changed; implementation has not started. Next: inspect the latest deal draft flow and implement the upload one file at a time.
