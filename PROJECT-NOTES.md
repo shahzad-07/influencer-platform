@@ -32,6 +32,7 @@ Last updated: 2026-10-22. Repo: github.com/shahzad-07/influencer-platform (publi
 ## Done
 
 - Auth with BRAND / INFLUENCER roles. Influencer profile, portfolio (links only, no uploads), brand-only pricing. Brand profile. Discovery both ways. Chat (REST + Socket.io) started by either side.
+- M5 chat improvements: existing-conversation list sorted by latest activity, previews, participant unread counts and live unread totals on desktop/mobile navigation. Mark-as-read is server-authorized. M5 code is manually deployed and live (2026-10-22).
 - Deals with a state machine. Encrypted payment details, payment records, and M3 stage-based payment-detail access (browser check passed and manually deployed 2026-10-22).
 - M4 notifications: authenticated in-app list and unread count, live new-offer and deal-action notifications, deal links that mark items read, and confirmed payment quick actions. The owner deployed the offer-created server change and reported notification checks passing on mobile and laptop and the payment confirmation browser check passing on 2026-10-22. The 22-check notification integration script passed.
 - Collaboration types, backend and React: the Create Offer form (type picker, barter box, amount and advance hidden for barter-only), the deal page, and the deals list (type tag, "Barter" instead of ₹0).
@@ -121,7 +122,7 @@ Done one at a time, in this order. Each milestone ends with the type checks, tes
    - Scope confirmed by the owner on 2026-10-22: show only existing conversations.
    - A conversation list sorted by last message with a preview, bold unread rows, round unread count, and an unread total on the chat icon (tab bar on phone, header on laptop).
    - Marked as read when opened, live updates.
-   - The owner reported the local browser check passed on 2026-10-22. Manual deployment of the server first, then client, is pending; mark M5 done after both are live.
+   - DONE 2026-10-22. The owner reported the local browser check passed. The server was manually deployed first, then the client; both are live, and the API health endpoint and client homepage returned HTTP 200.
 6. M6, draft file upload (server + client, large)
    - Drafts only. The portfolio stays links only.
    - The browser uploads straight to object storage with a short-lived signed URL, so the server never handles the video. Size and type limits. Each submission is a version. The brand watches it in the app. Files are deleted some time after the deal ends.
@@ -304,3 +305,4 @@ How to use this log:
 - 2026-10-22 (Shazu): Extended `server/scripts/chat-unread-test.mjs` with 51 temporary conversations and an unread message in the one outside the visible 50. The script now proves the list stays capped while `unreadTotal` includes that message, then removes the fixture documents. Checked: first-line check, `node --check scripts/chat-unread-test.mjs`, and all 18 integration checks passed against the local non-production database; temporary accounts, sockets and fixture data were cleaned up. Next: make the open Messages list reload its conversation previews/counts on `chat:changed`, then complete the M5 browser check.
 - 2026-10-22 (Shazu): Updated `client/src/pages/Messages.tsx` to reload the conversation list on `chat:changed` and socket reconnect, so latest previews, ordering and row unread counts refresh while the page is open. Checked: first-line check, `npx tsc --noEmit -p tsconfig.app.json`, and `npm run build` in `client/` passed. Browser check remains for M5 completion.
 - 2026-10-22 (Shazu): The owner reported the M5 local browser check passed: the list showed existing conversations newest-first, previews and unread counts updated live, opening a conversation cleared unread, and messages received while open were marked read. M5 is ready for manual deployment; deploy the server first, then the client. Mark it done after both services are live.
+- 2026-10-22 (Shazu): M5 deployed: the owner reported the server and client are both Live after deploying the server first. We verified the API health endpoint and client homepage both returned HTTP 200. M5 is complete. Next milestone: M6; ask the start-of-milestone questions about the storage provider and whether links remain as a fallback.
