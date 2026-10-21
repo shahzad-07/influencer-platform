@@ -19,6 +19,7 @@ import type {
 import { UserModel } from "../users/user.model";
 import { ConversationModel } from "../chat/conversation.model";
 import { authenticate, requireRole } from "../auth/auth.middleware";
+import { PaymentDetailsModel } from "../payments/payment-details.model";
 
 const router = Router();
 
@@ -326,6 +327,18 @@ router.post("/:id/actions", async (req, res) => {
     deal.expiresAt.getTime() < Date.now()
   ) {
     return res.status(409).json({ message: "This offer has expired" });
+  }
+
+  // Paid offers require saved payment details before the creator accepts.
+  // Barter-only offers do not need payment details.
+  if (
+    action === "accept" &&
+    terms.paid &&
+    !(await PaymentDetailsModel.exists({ user: deal.influencer }))
+  ) {
+    return res.status(409).json({
+      message: "Save your payment details before accepting this paid offer",
+    });
   }
 
   if (isNoteRequired(action) && !note) {

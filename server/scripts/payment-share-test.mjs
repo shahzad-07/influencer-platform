@@ -94,7 +94,7 @@ async function main() {
   const sharesCol = () => mongoose.connection.db.collection("payment_shares");
 
   const dealIds = [];
-  const newDeal = async (title) => {
+  const newDeal = async (title, terms = {}) => {
     const r = await api("/deals", {
       method: "POST",
       token: brandT,
@@ -104,6 +104,7 @@ async function main() {
         brief: "Test brief for the payment share checks.",
         amount: 500000,
         advancePercent: 50,
+        ...terms,
       },
     });
     dealIds.push(r.data.dealId);
@@ -134,15 +135,31 @@ async function main() {
   // Start with no saved details
   await api("/payment-details/me", { method: "DELETE", token: infT });
 
-  // ---- Sharing needs saved details and the right stage ----
+  // ---- Paid acceptance needs saved details; barter acceptance does not ----
   const dealA = await newDeal("Share test A");
-  await act(infT, dealA, "accept");
-  const noDetails = await share(dealA, "ADVANCE");
+  const noDetails = await act(infT, dealA, "accept");
   check(
-    "Cannot share before saving payment details",
+    "Cannot accept a paid offer before saving payment details",
     noDetails.status === 409 &&
       /payment details/i.test(noDetails.data.message ?? ""),
     show(noDetails),
+  );
+  const stillOffered = await api(`/deals/${dealA}`, { token: infT });
+  check(
+    "Paid offer stays offered when acceptance is blocked",
+    stillOffered.data.deal?.status === "OFFERED",
+    show(stillOffered),
+  );
+
+  const barterDeal = await newDeal("Share test barter", {
+    collaborationType: "BARTER",
+    barterDescription: "A meal and a drink",
+  });
+  const barterAccept = await act(infT, barterDeal, "accept");
+  check(
+    "Can accept a barter offer without payment details",
+    barterAccept.status === 200 && barterAccept.data.status === "IN_PROGRESS",
+    show(barterAccept),
   );
 
   const saved = await api("/payment-details/me", {
@@ -151,6 +168,13 @@ async function main() {
     body: FAKE,
   });
   check("Influencer saves payment details", saved.status === 200, show(saved));
+
+  const accepted = await act(infT, dealA, "accept");
+  check(
+    "Can accept a paid offer after saving payment details",
+    accepted.status === 200 && accepted.data.status === "ACCEPTED",
+    show(accepted),
+  );
 
   const dealB = await newDeal("Share test B (still an offer)");
   check(
