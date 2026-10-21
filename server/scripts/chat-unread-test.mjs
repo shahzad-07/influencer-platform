@@ -1,12 +1,15 @@
 import "dotenv/config";
 import { randomBytes, randomUUID } from "node:crypto";
 import mongoose from "mongoose";
+import { io } from "socket.io-client";
 
 const API = "http://localhost:5000/api";
+const SOCKET_URL = "http://localhost:5000";
 
 let failed = false;
 let conversationId = null;
 const userIds = [];
+const sockets = [];
 
 const check = (name, ok) => {
   if (!ok) failed = true;
@@ -40,10 +43,40 @@ async function register(role, name) {
   return { id: result.data.user.id, token: result.data.token };
 }
 
+function connect(token) {
+  return new Promise((resolve, reject) => {
+    const socket = io(SOCKET_URL, {
+      auth: { token },
+      reconnection: false,
+    });
+    socket.on("connect", () => {
+      sockets.push(socket);
+      resolve(socket);
+    });
+    socket.on("connect_error", (err) => {
+      socket.close();
+      reject(new Error(err.message));
+    });
+  });
+}
+
+function waitFor(socket, event, timeout = 2500) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), timeout);
+    socket.once(event, () => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+}
+
 async function main() {
   const brand = await register("BRAND", "Chat Unread Test Brand");
   const creator = await register("INFLUENCER", "Chat Unread Test Creator");
   const outsider = await register("BRAND", "Chat Unread Test Outsider");
+  const brandSocket = await connect(brand.token);
+  const creatorSocket = await connect(creator.token);
+  const outsiderSocket = await connect(outsider.token);
 
   check("Logged-out visitor cannot list conversations", (await api("/chat/conversations")).status === 401);
 
@@ -56,12 +89,23 @@ async function main() {
   check("Participants can create a conversation", created.status === 200 && Boolean(conversationId));
   if (!conversationId) return;
 
+  const creatorMessageEvent = waitFor(creatorSocket, "chat:changed");
+  const brandMessageEvent = waitFor(brandSocket, "chat:changed", 1200);
+  const outsiderMessageEvent = waitFor(outsiderSocket, "chat:changed", 1200);
   const sent = await api(`/chat/conversations/${conversationId}/messages`, {
     method: "POST",
     token: brand.token,
     body: { text: "Unread test message" },
   });
   check("Participant can send a message", sent.status === 201 && sent.data.message?.text === "Unread test message");
+  const [creatorChanged, brandChanged, outsiderChanged] = await Promise.all([
+    creatorMessageEvent,
+    brandMessageEvent,
+    outsiderMessageEvent,
+  ]);
+  check("Recipient receives a live chat refresh event", creatorChanged === true);
+  check("Sender receives no unread refresh event", brandChanged === null);
+  check("Outsider receives no chat refresh event", outsiderChanged === null);
 
   const creatorList = await api("/chat/conversations", { token: creator.token });
   const creatorConversation = creatorList.data.conversations?.find((item) => item.id === conversationId);
@@ -76,11 +120,19 @@ async function main() {
   });
   check("Outsider cannot mark the conversation read", outsiderRead.status === 404);
 
+  const creatorReadEvent = waitFor(creatorSocket, "chat:changed");
+  const brandReadEvent = waitFor(brandSocket, "chat:changed", 1200);
+  const outsiderReadEvent = waitFor(outsiderSocket, "chat:changed", 1200);
   const marked = await api(`/chat/conversations/${conversationId}/read`, {
     method: "PATCH",
     token: creator.token,
   });
   check("Participant can mark the conversation read", marked.status === 200 && Boolean(marked.data.readAt));
+  const [creatorReadChanged, brandReadChanged, outsiderReadChanged] =
+    await Promise.all([creatorReadEvent, brandReadEvent, outsiderReadEvent]);
+  check("Reader receives a live chat refresh event", creatorReadChanged === true);
+  check("Other participant receives no read refresh event", brandReadChanged === null);
+  check("Outsider receives no read refresh event", outsiderReadChanged === null);
 
   const afterRead = await api("/chat/conversations", { token: creator.token });
   const readConversation = afterRead.data.conversations?.find((item) => item.id === conversationId);
@@ -109,6 +161,7 @@ try {
   failed = true;
   console.error("Script error:", err instanceof Error ? err.message : "Unknown error");
 } finally {
+  for (const socket of sockets) socket.close();
   if (mongoose.connection.db) {
     if (conversationId) {
       const id = new mongoose.Types.ObjectId(conversationId);
