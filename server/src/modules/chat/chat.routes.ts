@@ -165,6 +165,27 @@ router.get("/conversations/:id/messages", async (req, res) => {
   });
 });
 
+// PARTICIPANTS: mark this conversation read for the signed-in participant
+router.patch("/conversations/:id/read", async (req, res) => {
+  const conversation = await findMyConversation(
+    req.params.id,
+    req.user!.userId,
+  );
+  if (!conversation) {
+    return res.status(404).json({ message: "Conversation not found" });
+  }
+
+  const readAt = new Date();
+  if (req.user!.role === "BRAND") {
+    conversation.brandLastReadAt = readAt;
+  } else {
+    conversation.influencerLastReadAt = readAt;
+  }
+  await conversation.save();
+
+  res.json({ readAt });
+});
+
 // PARTICIPANTS: send a message
 router.post("/conversations/:id/messages", async (req, res) => {
   const parsed = z
