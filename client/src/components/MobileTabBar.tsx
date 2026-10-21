@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
+import NotificationBell from "./NotificationBell";
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -56,6 +57,10 @@ export default function MobileTabBar() {
         </Icon>
         Chat
       </NavLink>
+      <div className="notification-tab">
+        <NotificationBell />
+        <span>Alerts</span>
+      </div>
       <NavLink to={profilePath}>
         <Icon>
           <circle cx="12" cy="8" r="4" />
