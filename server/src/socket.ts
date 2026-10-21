@@ -10,6 +10,7 @@ type Ack = (res: { ok: boolean; error?: string }) => void;
 let io: Server | null = null;
 
 const roomName = (conversationId: string) => `conversation:${conversationId}`;
+const userRoomName = (userId: string) => `user:${userId}`;
 
 export function initSocket(httpServer: HttpServer) {
   io = new Server(httpServer, {
@@ -34,6 +35,10 @@ export function initSocket(httpServer: HttpServer) {
   });
 
   io.on("connection", (socket) => {
+    // The authenticated identity comes from the verified JWT, never the client.
+    const { userId } = socket.data.user as AuthPayload;
+    socket.join(userRoomName(userId));
+
     // Join a conversation's room, only if I'm one of its two participants
     socket.on(
       "conversation:join",
@@ -78,4 +83,9 @@ export function emitNewMessage(conversationId: string, message: unknown) {
     conversationId,
     message,
   });
+}
+
+// Send a saved notification to all active connections for its recipient.
+export function emitNotification(userId: string, notification: unknown) {
+  io?.to(userRoomName(userId)).emit("notification:new", notification);
 }
