@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Logo from "./Logo";
+import NotificationBell from "./NotificationBell";
 import ThemeToggle from "./ThemeToggle";
 
 export default function SiteHeader() {
@@ -46,6 +47,7 @@ export default function SiteHeader() {
         )}
 
         <div className="header-actions">
+          {user && <NotificationBell />}
           <ThemeToggle />
           {!loading && !user && (
             <>
