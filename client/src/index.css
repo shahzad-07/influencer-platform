@@ -1545,3 +1545,9 @@ textarea.input {
     display: none;
   }
 }
+
+/* Deal page: the "Next step" card at the top */
+.next-step {
+  background: var(--surface);
+  border: 2px solid var(--primary);
+}

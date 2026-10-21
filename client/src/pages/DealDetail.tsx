@@ -119,6 +119,63 @@ const ACTIONS: Record<string, ActionConfig> = {
 // Only turn http(s) URLs into clickable links
 const isSafeUrl = (url: string) => /^https?:\/\//i.test(url);
 
+// Buttons that are always possible and don't mean "it's your turn"
+const SIDE_ACTIONS = ["cancel", "dispute"];
+
+// Deals with no way forward (same list as TERMINAL_STATUSES on the server)
+const closedText: Record<string, string> = {
+  COMPLETED: "This deal is complete. Nothing more to do.",
+  DECLINED: "This offer was declined.",
+  CANCELLED: "This offer was cancelled.",
+  EXPIRED: "This offer expired.",
+  DISPUTED: "This deal is disputed and frozen until it is resolved.",
+};
+
+// For each open status: what you do when it is your turn, and what the
+// other side is doing when it is theirs ("Waiting for X to ...")
+const STEP_TEXT: Record<string, { mine: string; theirs: string }> = {
+  OFFERED: {
+    mine: "Accept or decline this offer.",
+    theirs: "respond to the offer",
+  },
+  ACCEPTED: {
+    mine: "Pay the advance outside the app, then enter the reference here.",
+    theirs: "send the advance",
+  },
+  ADVANCE_SENT: {
+    mine: "Check your account, then confirm whether the advance arrived.",
+    theirs: "confirm the advance",
+  },
+  IN_PROGRESS: {
+    mine: "Make the content and submit a link to your draft.",
+    theirs: "submit a draft",
+  },
+  DRAFT_SUBMITTED: {
+    mine: "Review the draft. Approve it or ask for changes.",
+    theirs: "review your draft",
+  },
+  CHANGES_REQUESTED: {
+    mine: "Make the changes asked for and submit the draft again.",
+    theirs: "submit the updated draft",
+  },
+  DRAFT_APPROVED: {
+    mine: "Post the content and submit the link to the live post.",
+    theirs: "post the content and share the link",
+  },
+  LINK_SUBMITTED: {
+    mine: "Check that the post is live. Verify it or reject the link.",
+    theirs: "check the post link",
+  },
+  LINK_VERIFIED: {
+    mine: "Pay the final amount outside the app, then enter the reference here.",
+    theirs: "send the final payment",
+  },
+  FINAL_SENT: {
+    mine: "Check your account, then confirm whether the final payment arrived.",
+    theirs: "confirm the final payment",
+  },
+};
+
 export default function DealDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -234,6 +291,13 @@ export default function DealDetail() {
   // Money is involved for everything except barter-only
   const paid = isPaidType(deal.collaborationType);
 
+  // Whose turn is it? It is mine when the server allows me an action that
+  // moves the deal on (cancel and dispute alone don't count).
+  const closed = deal.status in closedText;
+  const myTurn =
+    !closed && deal.allowedActions.some((a) => !SIDE_ACTIONS.includes(a));
+  const stepText = STEP_TEXT[deal.status];
+
   function who(by: string | null) {
     if (by === null) return "System";
     if (by === deal!.brand.id) return `${deal!.brand.name} (brand)`;
@@ -258,6 +322,133 @@ export default function DealDetail() {
             </span>
           </div>
         </div>
+
+        {/* Next step: who must act, with their buttons */}
+        <section className="card stack next-step">
+          <h2>Next step</h2>
+          {closed ? (
+            <p>{closedText[deal.status]}</p>
+          ) : myTurn ? (
+            <p>
+              <strong>Your turn.</strong> {stepText?.mine}
+            </p>
+          ) : (
+            <p>
+              <strong>Waiting for {otherName}</strong>
+              {stepText ? ` to ${stepText.theirs}.` : "."}
+            </p>
+          )}
+
+          {deal.allowedActions.length > 0 && (
+            <>
+              {!myTurn && <span className="muted small">Other options</span>}
+              <div className="btn-row">
+                {deal.allowedActions.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    className={
+                      selected === a
+                        ? "btn btn-primary btn-sm"
+                        : "btn btn-outline btn-sm"
+                    }
+                    onClick={() => pickAction(a)}
+                    aria-pressed={selected === a}
+                  >
+                    {ACTIONS[a]?.label ?? a}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {selected && cfg && (
+            <form className="card stack" onSubmit={handleAction}>
+              <strong>{cfg.label}</strong>
+              {cfg.help && <span className="muted">{cfg.help}</span>}
+              {amountForAction !== null && (
+                <span>
+                  Amount to pay:{" "}
+                  <strong>{formatRupees(amountForAction)}</strong>
+                </span>
+              )}
+
+              {cfg.reference && (
+                <div className="field">
+                  <label htmlFor="reference">
+                    Payment reference (UTR or transaction ID)
+                  </label>
+                  <input
+                    id="reference"
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    pattern="[A-Za-z0-9\-]{6,30}"
+                    title="6 to 30 letters, digits or dashes, no spaces"
+                    maxLength={30}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+              )}
+
+              {cfg.urlLabel && (
+                <div className="field">
+                  <label htmlFor="url">{cfg.urlLabel}</label>
+                  <input
+                    id="url"
+                    type="url"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="https://..."
+                    maxLength={300}
+                    required
+                  />
+                </div>
+              )}
+
+              {cfg.note && (
+                <div className="field">
+                  <label htmlFor="note">
+                    {cfg.note === "required"
+                      ? "Comment (required)"
+                      : "Comment (optional)"}
+                  </label>
+                  <textarea
+                    id="note"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    maxLength={1000}
+                    rows={3}
+                    required={cfg.note === "required"}
+                  />
+                </div>
+              )}
+
+              {actionError && (
+                <p className="alert" role="alert">
+                  {actionError}
+                </p>
+              )}
+
+              <div className="btn-row">
+                <button
+                  className="btn btn-primary"
+                  type="submit"
+                  disabled={submitting}
+                >
+                  {submitting ? "Working..." : "Confirm"}
+                </button>
+                <button
+                  className="btn btn-outline"
+                  type="button"
+                  onClick={() => setSelected(null)}
+                >
+                  Never mind
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
 
         {/* Summary: total and progress (money), dates */}
         <section className="card">
@@ -352,122 +543,6 @@ export default function DealDetail() {
           </section>
         )}
 
-        {/* What can I do now? */}
-        <section className="stack">
-          <h2>What's next</h2>
-          {deal.allowedActions.length === 0 ? (
-            <p className="muted">
-              Nothing for you to do right now. You'll see buttons here when it's
-              your turn.
-            </p>
-          ) : (
-            <div className="btn-row">
-              {deal.allowedActions.map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  className={
-                    selected === a
-                      ? "btn btn-primary btn-sm"
-                      : "btn btn-outline btn-sm"
-                  }
-                  onClick={() => pickAction(a)}
-                  aria-pressed={selected === a}
-                >
-                  {ACTIONS[a]?.label ?? a}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {selected && cfg && (
-            <form className="card stack" onSubmit={handleAction}>
-              <strong>{cfg.label}</strong>
-              {cfg.help && <span className="muted">{cfg.help}</span>}
-              {amountForAction !== null && (
-                <span>
-                  Amount to pay:{" "}
-                  <strong>{formatRupees(amountForAction)}</strong>
-                </span>
-              )}
-
-              {cfg.reference && (
-                <div className="field">
-                  <label htmlFor="reference">
-                    Payment reference (UTR or transaction ID)
-                  </label>
-                  <input
-                    id="reference"
-                    value={reference}
-                    onChange={(e) => setReference(e.target.value)}
-                    pattern="[A-Za-z0-9\-]{6,30}"
-                    title="6 to 30 letters, digits or dashes, no spaces"
-                    maxLength={30}
-                    required
-                    autoComplete="off"
-                  />
-                </div>
-              )}
-
-              {cfg.urlLabel && (
-                <div className="field">
-                  <label htmlFor="url">{cfg.urlLabel}</label>
-                  <input
-                    id="url"
-                    type="url"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://..."
-                    maxLength={300}
-                    required
-                  />
-                </div>
-              )}
-
-              {cfg.note && (
-                <div className="field">
-                  <label htmlFor="note">
-                    {cfg.note === "required"
-                      ? "Comment (required)"
-                      : "Comment (optional)"}
-                  </label>
-                  <textarea
-                    id="note"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    maxLength={1000}
-                    rows={3}
-                    required={cfg.note === "required"}
-                  />
-                </div>
-              )}
-
-              {actionError && (
-                <p className="alert" role="alert">
-                  {actionError}
-                </p>
-              )}
-
-              <div className="btn-row">
-                <button
-                  className="btn btn-primary"
-                  type="submit"
-                  disabled={submitting}
-                >
-                  {submitting ? "Working..." : "Confirm"}
-                </button>
-                <button
-                  className="btn btn-outline"
-                  type="button"
-                  onClick={() => setSelected(null)}
-                >
-                  Never mind
-                </button>
-              </div>
-            </form>
-          )}
-        </section>
-
         {/* Payment sharing and records only exist when money is involved */}
         {paid && (
           <>
@@ -512,7 +587,7 @@ export default function DealDetail() {
         <section className="stack">
           <h2>Timeline</h2>
           <ol className="timeline">
-            {deal.statusHistory.map((h, i) => (
+            {[...deal.statusHistory].reverse().map((h, i) => (
               <li key={i}>
                 <strong>{statusLabel(h.status)}</strong>
                 <div className="muted small">
