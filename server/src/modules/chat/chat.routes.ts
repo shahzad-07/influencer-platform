@@ -5,7 +5,7 @@ import { ConversationModel } from "./conversation.model";
 import { MessageModel } from "./message.model";
 import { UserModel } from "../users/user.model";
 import { authenticate } from "../auth/auth.middleware";
-import { emitNewMessage } from "../../socket";
+import { emitChatChanged, emitNewMessage } from "../../socket";
 
 const router = Router();
 
@@ -182,6 +182,7 @@ router.patch("/conversations/:id/read", async (req, res) => {
     conversation.influencerLastReadAt = readAt;
   }
   await conversation.save();
+  emitChatChanged(req.user!.userId);
 
   res.json({ readAt });
 });
@@ -222,6 +223,11 @@ router.post("/conversations/:id/messages", async (req, res) => {
 
   // Push to everyone currently in this conversation's room
   emitNewMessage(String(conversation._id), payload);
+  const recipientId =
+    req.user!.role === "BRAND"
+      ? String(conversation.influencer)
+      : String(conversation.brand);
+  emitChatChanged(recipientId);
 
   res.status(201).json({ message: payload });
 });
