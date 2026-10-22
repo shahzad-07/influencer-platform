@@ -60,6 +60,8 @@ const profileSchema = new Schema(
     },
     bio: { type: String, trim: true, maxlength: 500, default: "" },
     niches: { type: [String], default: [] }, // e.g. ["fashion", "tech"]
+    // Used for campaign matching; this is self-declared by the creator.
+    followerCount: { type: Number, min: 0, validate: Number.isInteger, default: 0 },
     // Profiles saved before this field existed simply have none
     languages: {
       type: [{ type: String, enum: LANGUAGES }],

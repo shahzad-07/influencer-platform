@@ -18,6 +18,10 @@ router.get("/", async (req, res) => {
         "deal",
         "title",
       )
+      .populate<{ campaign: { _id: mongoose.Types.ObjectId; title: string } | null }>(
+        "campaign",
+        "title",
+      )
       .lean(),
     NotificationModel.countDocuments({ recipient, readAt: null }),
   ]);
@@ -27,7 +31,8 @@ router.get("/", async (req, res) => {
     notifications: notifications.map((notification) => ({
       id: String(notification._id),
       dealId: notification.deal ? String(notification.deal._id) : null,
-      dealTitle: notification.deal?.title ?? "Deal",
+      campaignId: notification.campaign ? String(notification.campaign._id) : null,
+      dealTitle: notification.deal?.title ?? notification.campaign?.title ?? "Deal",
       action: notification.action,
       createdAt: notification.createdAt,
       readAt: notification.readAt,

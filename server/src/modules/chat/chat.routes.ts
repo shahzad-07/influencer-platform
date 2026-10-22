@@ -6,6 +6,7 @@ import { MessageModel } from "./message.model";
 import { UserModel } from "../users/user.model";
 import { authenticate } from "../auth/auth.middleware";
 import { emitChatChanged, emitNewMessage } from "../../socket";
+import { CampaignModel } from "../campaigns/campaign.model";
 
 const router = Router();
 
@@ -158,6 +159,7 @@ router.get("/conversations/:id/messages", async (req, res) => {
   const messages = await MessageModel.find({ conversation: conversation._id })
     .sort({ createdAt: -1 })
     .limit(50)
+    .populate("campaign", "title brief niche collaborationType")
     .lean();
   messages.reverse();
 
@@ -166,6 +168,13 @@ router.get("/conversations/:id/messages", async (req, res) => {
       id: String(m._id),
       sender: String(m.sender),
       text: m.text,
+      campaign: m.campaign ? {
+        id: String((m.campaign as any)._id),
+        title: (m.campaign as any).title,
+        brief: (m.campaign as any).brief,
+        niche: (m.campaign as any).niche,
+        collaborationType: (m.campaign as any).collaborationType,
+      } : null,
       createdAt: m.createdAt,
     })),
   });
@@ -196,7 +205,11 @@ router.patch("/conversations/:id/read", async (req, res) => {
 // PARTICIPANTS: send a message
 router.post("/conversations/:id/messages", async (req, res) => {
   const parsed = z
-    .object({ text: z.string().trim().min(1).max(2000) })
+    .object({
+      text: z.string().trim().max(2000).optional(),
+      campaignId: z.string().refine((v) => mongoose.isValidObjectId(v), "Invalid campaign id").optional(),
+    })
+    .refine((data) => Boolean(data.text || data.campaignId), "Write a message or share a campaign")
     .safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
@@ -210,13 +223,30 @@ router.post("/conversations/:id/messages", async (req, res) => {
     return res.status(404).json({ message: "Conversation not found" });
   }
 
+  let campaign: { _id: mongoose.Types.ObjectId; title: string; brief: string; niche: string; collaborationType: string } | null = null;
+  if (parsed.data.campaignId) {
+    if (req.user!.role !== "BRAND") return res.status(403).json({ message: "Only the campaign's brand can share it" });
+    campaign = await CampaignModel.findOne({
+      _id: parsed.data.campaignId,
+      brand: req.user!.userId,
+      status: "OPEN",
+      $expr: { $lt: ["$filledSlots", "$creatorSlots"] },
+      $or: [{ deadline: null }, { deadline: { $gt: new Date() } }],
+    })
+      .select("title brief niche collaborationType").lean();
+    if (!campaign) return res.status(404).json({ message: "Open campaign not found" });
+  }
+
+  const text = parsed.data.text || `Shared campaign: ${campaign!.title}`;
+
   const message = await MessageModel.create({
     conversation: conversation._id,
     sender: req.user!.userId,
-    text: parsed.data.text,
+    text,
+    ...(campaign ? { campaign: campaign._id } : {}),
   });
 
-  conversation.lastMessageText = parsed.data.text.slice(0, 100);
+  conversation.lastMessageText = text.slice(0, 100);
   conversation.lastMessageAt = new Date();
   await conversation.save();
 
@@ -224,6 +254,10 @@ router.post("/conversations/:id/messages", async (req, res) => {
     id: String(message._id),
     sender: String(message.sender),
     text: message.text,
+    campaign: campaign ? {
+      id: String(campaign._id), title: campaign.title, brief: campaign.brief,
+      niche: campaign.niche, collaborationType: campaign.collaborationType,
+    } : null,
     createdAt: message.createdAt,
   };
 

@@ -80,6 +80,8 @@ const dealSchema = new Schema(
     brand: { type: Schema.Types.ObjectId, ref: "User", required: true },
     influencer: { type: Schema.Types.ObjectId, ref: "User", required: true },
     conversation: { type: Schema.Types.ObjectId, ref: "Conversation" },
+    campaign: { type: Schema.Types.ObjectId, ref: "Campaign" },
+    campaignSlotReserved: { type: Boolean, default: false },
 
     title: { type: String, required: true, trim: true, maxlength: 120 },
     brief: { type: String, required: true, trim: true, maxlength: 3000 },

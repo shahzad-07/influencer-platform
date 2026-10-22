@@ -18,6 +18,7 @@ const httpUrl = z
 const profileSchema = z.object({
   bio: z.string().max(500).optional(),
   niches: z.array(z.string().trim().min(1).max(30)).max(10).optional(),
+  followerCount: z.number().int().min(0).max(1_000_000_000).optional(),
   // Only languages from the fixed list, no repeats
   languages: z
     .array(z.enum(LANGUAGES))

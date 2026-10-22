@@ -32,6 +32,8 @@ import {
   getDraftInfo,
   MAX_DRAFT_BYTES,
 } from "./draft-storage";
+import { CampaignModel } from "../campaigns/campaign.model";
+import { CampaignApplicationModel } from "../campaigns/campaign-application.model";
 
 const router = Router();
 
@@ -66,6 +68,7 @@ const httpUrl = z
 
 const createSchema = z
   .object({
+    campaignId: z.string().refine((v) => mongoose.isValidObjectId(v), "Invalid campaign id").optional(),
     influencerId: z
       .string()
       .refine((v) => mongoose.isValidObjectId(v), "Invalid id"),
@@ -200,6 +203,7 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
     return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
   }
   const {
+    campaignId,
     influencerId,
     title,
     brief,
@@ -211,6 +215,26 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
   } = parsed.data;
   const brandId = req.user!.userId;
   const paid = isPaid(collaborationType);
+
+  let campaignApplicationReserved = false;
+  if (campaignId) {
+    const campaign = await CampaignModel.findOne({
+      _id: campaignId,
+      brand: brandId,
+      status: "OPEN",
+      collaborationType,
+      $expr: { $lt: ["$filledSlots", "$creatorSlots"] },
+      $or: [{ deadline: null }, { deadline: { $gt: new Date() } }],
+    }).lean();
+    if (!campaign) return res.status(409).json({ message: "This campaign is closed, full or has different collaboration terms" });
+    const application = await CampaignApplicationModel.findOneAndUpdate(
+      { campaign: campaignId, influencer: influencerId, status: "INTERESTED" },
+      { $set: { status: "OFFERED" } },
+      { new: true },
+    );
+    if (!application) return res.status(409).json({ message: "The creator is not an active interested applicant" });
+    campaignApplicationReserved = true;
+  }
 
   const isInfluencer = await UserModel.exists({
     _id: influencerId,
@@ -226,10 +250,13 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
     influencer: influencerId,
   }).select("_id");
 
-  const deal = await DealModel.create({
+  let deal;
+  try {
+    deal = await DealModel.create({
     brand: brandId,
     influencer: influencerId,
     conversation: conversation?._id,
+      ...(campaignId ? { campaign: campaignId } : {}),
     title,
     brief,
     collaborationType,
@@ -240,6 +267,21 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
     deadline,
     statusHistory: [{ status: "OFFERED", by: brandId }],
   });
+  } catch (error) {
+    if (campaignApplicationReserved) {
+      await CampaignApplicationModel.updateOne(
+        { campaign: campaignId, influencer: influencerId, status: "OFFERED" },
+        { $set: { status: "INTERESTED" } },
+      );
+    }
+    throw error;
+  }
+  if (campaignId) {
+    await CampaignApplicationModel.updateOne(
+      { campaign: campaignId, influencer: influencerId, status: "OFFERED" },
+      { $set: { deal: deal._id } },
+    );
+  }
 
   // Notify the creator that the brand sent an offer. Delivery is best-effort;
   // the successfully created offer remains successful if notifications fail.
@@ -574,6 +616,35 @@ router.post("/:id/actions", async (req, res) => {
   }
 
   const set: Record<string, unknown> = { status: next };
+  let campaignSlotClaimed = false;
+  if (action === "accept" && deal.campaign) {
+    const reserved = await CampaignModel.findOneAndUpdate(
+      {
+        _id: deal.campaign,
+        status: "OPEN",
+        $expr: { $lt: ["$filledSlots", "$creatorSlots"] },
+        $or: [{ deadline: null }, { deadline: { $gt: new Date() } }],
+      },
+      { $inc: { filledSlots: 1 } },
+      { new: true },
+    );
+    if (!reserved) {
+      return res.status(409).json({ message: "All campaign spots are filled or the campaign is closed" });
+    }
+    const application = await CampaignApplicationModel.findOneAndUpdate(
+      { campaign: deal.campaign, influencer: deal.influencer, deal: deal._id, status: "OFFERED" },
+      { $set: { status: "ACTIVE" } },
+      { new: true },
+    );
+    if (!application) {
+      await CampaignModel.updateOne({ _id: deal.campaign, filledSlots: { $gt: 0 } }, { $inc: { filledSlots: -1 } });
+      return res.status(409).json({ message: "This campaign application is no longer available" });
+    }
+    set.campaignSlotReserved = true;
+    campaignSlotClaimed = true;
+  }
+  const releaseCampaignSlot = action === "cancel" && Boolean(deal.campaignSlotReserved);
+  if (releaseCampaignSlot) set.campaignSlotReserved = false;
   let checkedDraftVideo: { contentType: string; sizeBytes: number } | null = null;
   const push: Record<string, unknown> = {
     statusHistory: { status: next, by: userId, at: new Date(), note },
@@ -708,10 +779,27 @@ router.post("/:id/actions", async (req, res) => {
     if (savedDraftVersionId) {
       await DraftVersionModel.deleteOne({ _id: savedDraftVersionId });
     }
+    if (campaignSlotClaimed && deal.campaign) {
+      await CampaignModel.updateOne({ _id: deal.campaign, filledSlots: { $gt: 0 } }, { $inc: { filledSlots: -1 } });
+      await CampaignApplicationModel.updateOne(
+        { campaign: deal.campaign, influencer: deal.influencer, deal: deal._id, status: "ACTIVE" },
+        { $set: { status: "OFFERED" } },
+      );
+    }
     return res.status(409).json({
       message:
         "The deal was just changed by someone else. Refresh and try again.",
     });
+  }
+
+  if (deal.campaign && (action === "decline" || action === "cancel")) {
+    if (releaseCampaignSlot) {
+      await CampaignModel.updateOne({ _id: deal.campaign, filledSlots: { $gt: 0 } }, { $inc: { filledSlots: -1 } });
+    }
+    await CampaignApplicationModel.updateOne(
+      { campaign: deal.campaign, influencer: deal.influencer, deal: deal._id, status: { $in: ["OFFERED", "ACTIVE"] } },
+      { $set: { status: "INTERESTED" } },
+    );
   }
 
   // Notify the other deal participant only after the compare-and-set succeeds.

@@ -9,6 +9,7 @@ const messageSchema = new Schema(
     },
     sender: { type: Schema.Types.ObjectId, ref: "User", required: true },
     text: { type: String, required: true, trim: true, maxlength: 2000 },
+    campaign: { type: Schema.Types.ObjectId, ref: "Campaign" },
   },
   { timestamps: true },
 );
