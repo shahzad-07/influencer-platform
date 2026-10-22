@@ -100,8 +100,6 @@ export default function BrowseInfluencers() {
   }
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / LIMIT)) : 1;
-  const totalFollowers = (links: SocialLink[]) =>
-    links.reduce((sum, l) => sum + l.followers, 0);
 
   return (
     <AppLayout>
@@ -201,10 +199,11 @@ export default function BrowseInfluencers() {
                       Languages: {inf.languages.join(", ")}
                     </div>
                   )}
-                  <div className="muted small">
-                    {Number(inf.followerCount ?? totalFollowers(inf.socialLinks)).toLocaleString("en-IN")}{" "}
-                    followers total
-                  </div>
+                  {Number(inf.followerCount ?? 0) > 0 && (
+                    <div className="muted small">
+                      {Number(inf.followerCount).toLocaleString("en-IN")} followers total
+                    </div>
+                  )}
                   <Link
                     className="btn btn-outline btn-sm"
                     to={`/brand/influencers/${inf.id}`}

@@ -120,7 +120,7 @@ export default function PaymentSharePanel({ dealId, status, role, otherName, pay
             <p><strong>Amount due:</strong> ₹{(amountPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
           )}
           {!view ? (
-            <button type="button" className="button button-primary" onClick={showPaymentDetails} disabled={busy}>
+            <button type="button" className="btn btn-primary payment-share-show" onClick={showPaymentDetails} disabled={busy}>
               {busy ? 'Loading…' : 'Show payment details'}
             </button>
           ) : (

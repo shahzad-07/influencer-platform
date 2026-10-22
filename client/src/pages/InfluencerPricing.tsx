@@ -171,6 +171,7 @@ export default function InfluencerPricing() {
               step={1}
               value={rupees}
               onChange={(e) => setRupees(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
               required
             />
           </div>

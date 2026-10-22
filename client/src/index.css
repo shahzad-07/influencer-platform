@@ -348,6 +348,10 @@ svg {
 .notification-empty {
   padding: 18px 16px;
 }
+.payment-share-show {
+  min-height: 52px;
+  padding-inline: 24px;
+}
 .notifications-page {
   max-width: 760px;
   margin-inline: auto;
