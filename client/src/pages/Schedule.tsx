@@ -8,6 +8,14 @@ import { statusLabel } from "../lib/format";
 type FixedPlan = { mode: "FIXED"; scheduledAt: string };
 type FlexiblePlan = { mode: "FLEXIBLE"; startDate: string; endDate: string };
 type VisitPlan = FixedPlan | FlexiblePlan | null;
+type CalendarEvent = {
+  date: string;
+  dealId: string;
+  title: string;
+  otherName: string;
+  kind: "VISIT" | "GO_LIVE";
+  time?: string;
+};
 interface ScheduleItem {
   dealId: string;
   title: string;
@@ -43,6 +51,38 @@ function displayDate(value: string) {
   });
 }
 
+function istDateKey(value: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(value));
+  const part = (type: string) => parts.find((entry) => entry.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function istTodayKey() {
+  return istDateKey(new Date().toISOString());
+}
+
+function currentIstMonth() {
+  const [year, month] = istTodayKey().split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, 1));
+}
+
+function calendarDate(year: number, month: number, day: number) {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function visitTime(value: string) {
+  return new Intl.DateTimeFormat("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  }).format(new Date(value)) + " IST";
+}
+
 function visitSummary(plan: VisitPlan) {
   if (!plan) return "No visit planned yet";
   if (plan.mode === "FIXED") {
@@ -57,7 +97,15 @@ function visitSummary(plan: VisitPlan) {
     : `${displayDate(plan.startDate)} – ${displayDate(plan.endDate)}`;
 }
 
-function ScheduleCard({ item, isBrand }: { item: ScheduleItem; isBrand: boolean }) {
+function ScheduleCard({
+  item,
+  isBrand,
+  onSaved,
+}: {
+  item: ScheduleItem;
+  isBrand: boolean;
+  onSaved: (dealId: string, visitPlan: VisitPlan, goLiveDeadline: string) => void;
+}) {
   const [savedVisitPlan, setSavedVisitPlan] = useState(item.visitPlan);
   const [savedGoLiveDeadline, setSavedGoLiveDeadline] = useState(item.goLiveDeadline);
   const [mode, setMode] = useState<"FIXED" | "FLEXIBLE">(
@@ -91,6 +139,7 @@ function ScheduleCard({ item, isBrand }: { item: ScheduleItem; isBrand: boolean 
       });
       setSavedVisitPlan(visitPlan);
       setSavedGoLiveDeadline(goLiveDeadline);
+      onSaved(item.dealId, visitPlan, goLiveDeadline);
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save this schedule");
@@ -164,9 +213,12 @@ function ScheduleCard({ item, isBrand }: { item: ScheduleItem; isBrand: boolean 
 
 export default function Schedule() {
   const { user } = useAuth();
+  const isBrand = user?.role === "BRAND";
   const [items, setItems] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [month, setMonth] = useState(currentIstMonth);
+  const [selectedDate, setSelectedDate] = useState(istTodayKey);
 
   useEffect(() => {
     api<{ schedules: ScheduleItem[] }>("/deals/schedule")
@@ -175,17 +227,143 @@ export default function Schedule() {
       .finally(() => setLoading(false));
   }, []);
 
+  const events: CalendarEvent[] = items.flatMap((item) => {
+    const current: CalendarEvent[] = [];
+    if (item.visitPlan?.mode === "FIXED") {
+      current.push({
+        date: istDateKey(item.visitPlan.scheduledAt),
+        dealId: item.dealId,
+        title: item.title,
+        otherName: item.otherUser.name,
+        kind: "VISIT",
+        time: visitTime(item.visitPlan.scheduledAt),
+      });
+    }
+    if (item.goLiveDeadline) {
+      current.push({
+        date: item.goLiveDeadline,
+        dealId: item.dealId,
+        title: item.title,
+        otherName: item.otherUser.name,
+        kind: "GO_LIVE",
+      });
+    }
+    return current;
+  });
+
+  const year = month.getUTCFullYear();
+  const monthIndex = month.getUTCMonth();
+  const firstWeekday = new Date(Date.UTC(year, monthIndex, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+  const days = [
+    ...Array.from({ length: firstWeekday }, () => ""),
+    ...Array.from({ length: daysInMonth }, (_, index) => calendarDate(year, monthIndex, index + 1)),
+  ];
+  while (days.length % 7) days.push("");
+  const selectedEvents = events.filter((event) => event.date === selectedDate);
+  const flexibleItems = items.filter((item) => item.visitPlan?.mode === "FLEXIBLE");
+
+  function changeMonth(offset: number) {
+    const nextMonth = new Date(Date.UTC(year, monthIndex + offset, 1));
+    setMonth(nextMonth);
+    setSelectedDate(calendarDate(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth(), 1));
+  }
+
+  function handleSaved(dealId: string, visitPlan: VisitPlan, goLiveDeadline: string) {
+    setItems((current) => current.map((item) => item.dealId === dealId
+      ? { ...item, visitPlan, goLiveDeadline }
+      : item));
+  }
+
   return (
     <AppLayout>
       <div className="stack form-wide schedule-page">
         <h1>Schedule</h1>
-        <p className="muted">Keep a simple shared plan for visits and go-live dates. Either person can update it.</p>
+        <p className="muted">See the date and time to visit a brand or creator. Both people on an accepted deal can update the shared plan.</p>
         {loading && <p className="muted">Loading...</p>}
         {error && <p className="alert" role="alert">{error}</p>}
         {!loading && !error && items.length === 0 && (
-          <p className="muted">No deals yet. When you have a deal, its visit plan and optional go-live date can be recorded here.</p>
+          <p className="muted">No accepted active deals yet. A visit can be scheduled here after a deal is accepted.</p>
         )}
-        {items.map((item) => <ScheduleCard key={item.dealId} item={item} isBrand={user?.role === "BRAND"} />)}
+        {items.length > 0 && (
+          <>
+            <section className="calendar" aria-label="Visit and go-live calendar">
+              <div className="calendar-heading">
+                <button className="btn btn-text btn-sm calendar-arrow" type="button" onClick={() => changeMonth(-1)} aria-label="Previous month">‹</button>
+                <h2>{month.toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" })}</h2>
+                <button className="btn btn-text btn-sm calendar-arrow" type="button" onClick={() => changeMonth(1)} aria-label="Next month">›</button>
+              </div>
+              <div className="calendar-grid" role="grid" aria-label="Calendar month">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((weekday) => (
+                  <div className="calendar-weekday" role="columnheader" key={weekday}>{weekday}</div>
+                ))}
+                {days.map((date, index) => {
+                  const dayEvents = date ? events.filter((event) => event.date === date) : [];
+                  return date ? (
+                    <button
+                      type="button"
+                      role="gridcell"
+                      key={date}
+                      className={`calendar-day${date === selectedDate ? " selected" : ""}${date === istTodayKey() ? " today" : ""}`}
+                      aria-label={`${displayDate(date)}, ${dayEvents.length} scheduled ${dayEvents.length === 1 ? "item" : "items"}`}
+                      aria-pressed={date === selectedDate}
+                      onClick={() => setSelectedDate(date)}
+                    >
+                      <span className="calendar-day-number">{index - firstWeekday + 1}</span>
+                      <span className="calendar-dots" aria-hidden="true">
+                        {dayEvents.slice(0, 4).map((event, eventIndex) => (
+                          <i className={`calendar-dot ${event.kind.toLowerCase()}`} key={`${event.kind}-${event.dealId}-${eventIndex}`} />
+                        ))}
+                      </span>
+                    </button>
+                  ) : <span className="calendar-day empty" key={`empty-${index}`} aria-hidden="true" />;
+                })}
+              </div>
+              <div className="calendar-legend">
+                <span><i className="calendar-dot visit" /> Visit</span>
+                <span><i className="calendar-dot go_live" /> Go-live</span>
+              </div>
+              <section className="calendar-selected" aria-live="polite">
+                <h3>{displayDate(selectedDate)}</h3>
+                {selectedEvents.length === 0 ? <p className="muted">Nothing scheduled for this date.</p> : (
+                  <ul className="calendar-event-list">
+                    {selectedEvents.map((event, index) => (
+                      <li key={`${event.kind}-${event.dealId}-${index}`}>
+                        <span className={`calendar-dot ${event.kind.toLowerCase()}`} />
+                        <div>
+                          <strong>{event.kind === "VISIT" ? `${isBrand ? "Creator" : "Brand"}: ${event.otherName}` : "Go-live deadline"}</strong>
+                          <p>{event.kind === "VISIT" ? event.time : "Due today"} · {event.title}</p>
+                          <Link to={`/deals/${event.dealId}`}>View deal</Link>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </section>
+
+            {flexibleItems.length > 0 && (
+              <section className="stack">
+                <h2>Flexible visit windows</h2>
+                <p className="muted">These date ranges are shown here as one plan and do not reserve every day in the calendar.</p>
+                {flexibleItems.map((item) => (
+                  <article className="card flexible-window" key={item.dealId}>
+                    <div>
+                      <strong>{isBrand ? "Creator" : "Brand"}: {item.otherUser.name}</strong>
+                      <p>{item.title} · {visitSummary(item.visitPlan)}</p>
+                    </div>
+                    <Link to={`/deals/${item.dealId}`}>View deal</Link>
+                  </article>
+                ))}
+              </section>
+            )}
+
+            <section className="stack">
+              <h2>Plan a visit or go-live date</h2>
+              {items.map((item) => <ScheduleCard key={item.dealId} item={item} isBrand={user?.role === "BRAND"} onSaved={handleSaved} />)}
+            </section>
+          </>
+        )}
       </div>
     </AppLayout>
   );

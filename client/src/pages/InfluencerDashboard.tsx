@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AppLayout from "../components/AppLayout";
+import ScheduleHomeSection from "../components/ScheduleHomeSection";
 
 export default function InfluencerDashboard() {
   const { user } = useAuth();
@@ -51,6 +52,7 @@ export default function InfluencerDashboard() {
             </Link>
           </li>
         </ul>
+        <ScheduleHomeSection isBrand={false} />
       </div>
     </AppLayout>
   );

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AppLayout from "../components/AppLayout";
+import ScheduleHomeSection from "../components/ScheduleHomeSection";
 
 export default function BrandDashboard() {
   const { user } = useAuth();
@@ -39,6 +40,7 @@ export default function BrandDashboard() {
             </Link>
           </li>
         </ul>
+        <ScheduleHomeSection isBrand />
       </div>
     </AppLayout>
   );
