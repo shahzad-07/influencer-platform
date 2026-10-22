@@ -19,6 +19,7 @@ import PaymentDetails from "./pages/PaymentDetails";
 import CreateOffer from "./pages/CreateOffer";
 import Deals from "./pages/Deals";
 import DealDetail from "./pages/DealDetail";
+import Schedule from "./pages/Schedule";
 
 // "/" shows the public home page to visitors and sends logged-in people to their dashboard
 function Home() {
@@ -147,6 +148,14 @@ export default function App() {
         element={
           <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
             <Deals />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/schedule"
+        element={
+          <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
+            <Schedule />
           </ProtectedRoute>
         }
       />

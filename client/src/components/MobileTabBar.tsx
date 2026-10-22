@@ -53,6 +53,14 @@ export default function MobileTabBar() {
         </Icon>
         Deals
       </NavLink>
+      <NavLink to="/schedule">
+        <Icon>
+          <rect x="3" y="4" width="18" height="17" rx="2" />
+          <path d="M16 2v4M8 2v4M3 10h18" />
+          <path d="M8 14h.01M12 14h.01M16 14h.01" />
+        </Icon>
+        Schedule
+      </NavLink>
       <NavLink to="/messages">
         <Icon>
           <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />

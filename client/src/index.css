@@ -1775,3 +1775,72 @@ textarea.input {
     animation: none;
   }
 }
+
+/* M7: shared visit plans and go-live dates */
+.schedule-page {
+  max-width: 760px;
+}
+.schedule-card {
+  display: grid;
+  gap: 12px;
+}
+.schedule-card p,
+.schedule-card h2,
+.schedule-card h3 {
+  margin: 0;
+}
+.schedule-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.schedule-card-head h2 {
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+.schedule-editor {
+  display: grid;
+  gap: 14px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.schedule-editor h3 {
+  font-size: 1rem;
+}
+.schedule-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.schedule-mode legend {
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+.schedule-mode label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.schedule-mode input {
+  accent-color: var(--primary);
+}
+.schedule-date-pair {
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 560px) {
+  .schedule-date-pair {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 380px) {
+  .tabbar a {
+    padding-inline: 2px;
+    font-size: 0.625rem;
+  }
+}
