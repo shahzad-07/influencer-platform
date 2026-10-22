@@ -11,7 +11,9 @@ const userSchema = new Schema(
       trim: true,
     },
     passwordHash: { type: String, required: true },
-    role: { type: String, enum: ["BRAND", "INFLUENCER"], required: true },
+    // ADMIN accounts are promoted directly by the owner in Atlas; public
+    // registration remains limited to BRAND and INFLUENCER.
+    role: { type: String, enum: ["ADMIN", "BRAND", "INFLUENCER"], required: true },
   },
   { timestamps: true },
 );

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-export type Role = "BRAND" | "INFLUENCER";
+export type Role = "ADMIN" | "BRAND" | "INFLUENCER";
 export interface AuthPayload {
   userId: string;
   role: Role;
