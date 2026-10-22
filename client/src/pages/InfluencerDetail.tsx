@@ -22,6 +22,7 @@ interface Influencer {
   name: string;
   bio: string;
   niches: string[];
+  followerCount?: number;
   languages?: string[]; // older profiles may not have it
   location: string;
   socialLinks: SocialLink[];
@@ -163,6 +164,7 @@ export default function InfluencerDetail() {
               )}
 
               {influencer.bio && <p>{influencer.bio}</p>}
+              <p className="muted small"><strong>{Number(influencer.followerCount ?? 0).toLocaleString("en-IN")}</strong> self-declared followers</p>
 
               <h2>Social media</h2>
               {influencer.socialLinks.length === 0 ? (

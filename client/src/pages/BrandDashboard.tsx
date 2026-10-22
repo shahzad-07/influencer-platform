@@ -28,6 +28,12 @@ export default function BrandDashboard() {
             </Link>
           </li>
           <li>
+            <Link to="/campaigns">
+              My campaigns
+              <small>Find creators for a group collaboration</small>
+            </Link>
+          </li>
+          <li>
             <Link to="/messages">
               Messages
               <small>Chat with creators</small>

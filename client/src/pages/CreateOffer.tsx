@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { formatRupees, hasMoney } from "../lib/format";
 import type { CollabType } from "../lib/format";
@@ -29,6 +29,8 @@ const TYPE_OPTIONS: { value: CollabType; label: string; hint: string }[] = [
 
 export default function CreateOffer() {
   const { influencerId } = useParams<{ influencerId: string }>();
+  const [searchParams] = useSearchParams();
+  const campaignId = searchParams.get("campaignId");
   const navigate = useNavigate();
 
   const [name, setName] = useState("");
@@ -53,11 +55,20 @@ export default function CreateOffer() {
     Promise.all([
       api<{ influencer: { name: string } }>(`/influencers/${influencerId}`),
       api<{ prices: Price[] }>(`/pricing/influencer/${influencerId}`),
+      campaignId
+        ? api<{ campaign: { title: string; brief: string; collaborationType: CollabType; barterDescription: string } }>(`/campaigns/${campaignId}`)
+        : Promise.resolve(null),
     ])
-      .then(([profileRes, priceRes]) => {
+      .then(([profileRes, priceRes, campaignRes]) => {
         if (cancelled) return;
         setName(profileRes.influencer.name);
         setPrices(priceRes.prices);
+        if (campaignRes?.campaign) {
+          setTitle(campaignRes.campaign.title);
+          setBrief(campaignRes.campaign.brief);
+          setCollabType(campaignRes.campaign.collaborationType);
+          setBarterDescription(campaignRes.campaign.barterDescription);
+        }
       })
       .catch((err) => {
         if (!cancelled)
@@ -72,7 +83,7 @@ export default function CreateOffer() {
     return () => {
       cancelled = true;
     };
-  }, [influencerId]);
+  }, [influencerId, campaignId]);
 
   // Does this offer include money? Barter-only has no amount and no advance.
   const paid = hasMoney(collabType);
@@ -120,6 +131,7 @@ export default function CreateOffer() {
       await api("/deals", {
         method: "POST",
         body: JSON.stringify({
+          ...(campaignId ? { campaignId } : {}),
           influencerId,
           title,
           brief,
@@ -206,8 +218,8 @@ export default function CreateOffer() {
             />
           </div>
 
-          <fieldset className="group">
-            <legend>What are you offering?</legend>
+          <fieldset className="group" disabled={Boolean(campaignId)}>
+            <legend>What are you offering?{campaignId ? " (set by campaign)" : ""}</legend>
             <div className="choices">
               {TYPE_OPTIONS.map((o) => (
                 <label key={o.value} className="choice">

@@ -7,6 +7,7 @@ import { getSocket } from "../lib/socket";
 interface NotificationItem {
   id: string;
   dealId: string | null;
+  campaignId?: string | null;
   dealTitle: string;
   action: string;
   createdAt: string;
@@ -39,6 +40,8 @@ const actionText: Record<string, string> = {
   confirmFinal: "confirmed the final payment",
   rejectFinal: "reported a final payment issue",
   dispute: "raised a dispute",
+  campaignNew: "posted a campaign that may fit your profile",
+  campaignInterest: "is interested in your campaign",
 };
 
 export default function NotificationBell() {
@@ -160,10 +163,10 @@ export default function NotificationBell() {
                     className={notification.readAt ? "notification-item" : "notification-item unread"}
                     key={notification.id}
                   >
-                    {notification.dealId ? (
+                    {notification.dealId || notification.campaignId ? (
                       <Link
                         className="notification-link"
-                        to={`/deals/${notification.dealId}`}
+                        to={notification.campaignId ? `/campaigns/${notification.campaignId}` : `/deals/${notification.dealId}`}
                         onClick={() => void markRead(notification)}
                       >
                         <strong>{notification.dealTitle}</strong>

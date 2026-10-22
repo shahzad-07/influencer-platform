@@ -34,6 +34,12 @@ export default function InfluencerDashboard() {
             </Link>
           </li>
           <li>
+            <Link to="/campaigns">
+              Find campaigns
+              <small>See open opportunities that match your profile</small>
+            </Link>
+          </li>
+          <li>
             <Link to="/influencer/profile">
               My profile
               <small>Your niches, languages and past work</small>

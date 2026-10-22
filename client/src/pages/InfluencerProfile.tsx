@@ -35,6 +35,7 @@ interface PortfolioItem {
 interface Profile {
   bio: string;
   niches: string[];
+  followerCount?: number;
   languages?: string[]; // older profiles may not have it
   location: string;
   socialLinks: SocialLink[];
@@ -45,6 +46,7 @@ export default function InfluencerProfile() {
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [nichesText, setNichesText] = useState(""); // "tech, lifestyle"
+  const [followerCount, setFollowerCount] = useState("0");
   const [languages, setLanguages] = useState<Language[]>([]);
   const [links, setLinks] = useState<SocialLink[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
@@ -62,6 +64,7 @@ export default function InfluencerProfile() {
           setBio(profile.bio);
           setLocation(profile.location);
           setNichesText(profile.niches.join(", "));
+          setFollowerCount(String(profile.followerCount ?? 0));
           // Keep only languages that are on the list
           setLanguages(
             (profile.languages ?? []).filter((l): l is Language =>
@@ -142,6 +145,7 @@ export default function InfluencerProfile() {
           bio,
           location,
           niches,
+          followerCount: Number(followerCount),
           languages,
           socialLinks: links,
           portfolio,
@@ -199,6 +203,21 @@ export default function InfluencerProfile() {
             placeholder="tech, lifestyle, fitness"
           />
           <span className="hint">Separate with commas</span>
+        </div>
+
+        <div className="field">
+          <label htmlFor="follower-count">Total followers (self-declared)</label>
+          <input
+            id="follower-count"
+            type="number"
+            min={0}
+            max={1_000_000_000}
+            step={1}
+            value={followerCount}
+            onChange={(event) => setFollowerCount(event.target.value)}
+            required
+          />
+          <span className="hint">Brands use this number to match campaign requirements.</span>
         </div>
 
         <fieldset className="group">

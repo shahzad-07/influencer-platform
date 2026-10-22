@@ -19,6 +19,14 @@ interface ChatMessage {
   sender: string;
   text: string;
   createdAt: string;
+  campaign?: { id: string; title: string; brief: string; niche: string; collaborationType: string } | null;
+}
+
+interface ShareableCampaign {
+  id: string;
+  title: string;
+  remainingSlots: number;
+  status: string;
 }
 
 export default function Messages() {
@@ -28,6 +36,8 @@ export default function Messages() {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
+  const [campaigns, setCampaigns] = useState<ShareableCampaign[]>([]);
+  const [campaignId, setCampaignId] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -205,6 +215,42 @@ export default function Messages() {
   const activeConversation = conversations.find((c) => c.id === conversationId);
   const isBrand = user?.role === "BRAND";
 
+  useEffect(() => {
+    if (!isBrand || !conversationId) {
+      setCampaigns([]);
+      setCampaignId("");
+      return;
+    }
+    let cancelled = false;
+    api<{ campaigns: ShareableCampaign[] }>("/campaigns")
+      .then(({ campaigns: items }) => {
+        if (!cancelled) setCampaigns(items.filter((item) => item.status === "OPEN" && item.remainingSlots > 0));
+      })
+      .catch(() => {
+        if (!cancelled) setCampaigns([]);
+      });
+    return () => { cancelled = true; };
+  }, [isBrand, conversationId]);
+
+  async function handleShareCampaign() {
+    if (!conversationId || !campaignId) return;
+    setSending(true);
+    setError("");
+    try {
+      const result = await api<{ message: ChatMessage }>(
+        `/chat/conversations/${conversationId}/messages`,
+        { method: "POST", body: JSON.stringify({ campaignId }) },
+      );
+      addMessage(result.message);
+      bumpConversation(conversationId, result.message.text, result.message.createdAt);
+      setCampaignId("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not share campaign");
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <AppLayout>
       <div className={conversationId ? "chat-wrap chat-open" : "chat-wrap"}>
@@ -282,7 +328,14 @@ export default function Messages() {
                         key={m.id}
                         className={mine ? "bubble mine" : "bubble"}
                       >
-                        {m.text}
+                        {m.campaign ? (
+                          <div className="campaign-message-card">
+                            <strong>{m.campaign.title}</strong>
+                            <span className="muted small">{m.campaign.niche} · {m.campaign.collaborationType.replaceAll("_", " + ").toLowerCase()}</span>
+                            <p>{m.campaign.brief}</p>
+                            <Link to={`/campaigns/${m.campaign.id}`}>View campaign</Link>
+                          </div>
+                        ) : m.text}
                         <time dateTime={m.createdAt}>
                           {new Date(m.createdAt).toLocaleTimeString([], {
                             hour: "2-digit",
@@ -299,6 +352,19 @@ export default function Messages() {
                   <p className="alert" role="alert">
                     {error}
                   </p>
+                )}
+
+                {isBrand && campaigns.length > 0 && (
+                  <div className="chat-campaign-share">
+                    <label className="sr-only" htmlFor="share-campaign">Campaign to share</label>
+                    <select id="share-campaign" className="input" value={campaignId} onChange={(event) => setCampaignId(event.target.value)}>
+                      <option value="">Share a campaign…</option>
+                      {campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.title} ({campaign.remainingSlots} spots)</option>)}
+                    </select>
+                    <button className="btn btn-outline" type="button" disabled={sending || !campaignId} onClick={() => void handleShareCampaign()}>
+                      Share campaign
+                    </button>
+                  </div>
                 )}
 
                 <form className="chat-form" onSubmit={handleSend}>

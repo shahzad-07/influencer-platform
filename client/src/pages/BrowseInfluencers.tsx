@@ -16,6 +16,7 @@ interface InfluencerCard {
   name: string;
   bio: string;
   niches: string[];
+  followerCount?: number;
   languages?: string[];
   location: string;
   socialLinks: SocialLink[];
@@ -201,7 +202,7 @@ export default function BrowseInfluencers() {
                     </div>
                   )}
                   <div className="muted small">
-                    {totalFollowers(inf.socialLinks).toLocaleString("en-IN")}{" "}
+                    {Number(inf.followerCount ?? totalFollowers(inf.socialLinks)).toLocaleString("en-IN")}{" "}
                     followers total
                   </div>
                   <Link

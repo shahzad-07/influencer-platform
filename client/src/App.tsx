@@ -20,6 +20,9 @@ import CreateOffer from "./pages/CreateOffer";
 import Deals from "./pages/Deals";
 import DealDetail from "./pages/DealDetail";
 import Schedule from "./pages/Schedule";
+import Campaigns from "./pages/Campaigns";
+import CampaignNew from "./pages/CampaignNew";
+import CampaignDetail from "./pages/CampaignDetail";
 
 // "/" shows the public home page to visitors and sends logged-in people to their dashboard
 function Home() {
@@ -156,6 +159,30 @@ export default function App() {
         element={
           <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
             <Schedule />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/campaigns"
+        element={
+          <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
+            <Campaigns />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/campaigns/new"
+        element={
+          <ProtectedRoute role="BRAND">
+            <CampaignNew />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/campaigns/:id"
+        element={
+          <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
+            <CampaignDetail />
           </ProtectedRoute>
         }
       />
