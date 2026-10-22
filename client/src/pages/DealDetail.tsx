@@ -9,7 +9,6 @@ import {
   statusLabel,
 } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
-import { getSupabaseClient } from "../lib/supabase";
 import PaymentSharePanel from "../components/PaymentSharePanel";
 import PaymentTerms from "../components/PaymentTerms";
 import AppLayout from "../components/AppLayout";
@@ -253,6 +252,7 @@ export default function DealDetail() {
     try {
       let draftObjectPath: string | undefined;
       if (selected === "submitDraft" && draftFile) {
+        const { getSupabaseClient } = await import("../lib/supabase");
         if (draftFile.size > 1024 * 1024) {
           throw new Error("The video must be no larger than 1 MB");
         }

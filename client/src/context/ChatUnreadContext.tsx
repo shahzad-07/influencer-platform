@@ -60,3 +60,8 @@ export function useChatUnread() {
   }
   return unreadTotal;
 }
+
+// Public pages also render SiteHeader, but they don't mount the app-only provider.
+export function useChatUnreadIfAvailable() {
+  return useContext(ChatUnreadContext) ?? 0;
+}

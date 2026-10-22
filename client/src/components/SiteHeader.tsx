@@ -3,11 +3,11 @@ import { useAuth } from "../context/AuthContext";
 import Logo from "./Logo";
 import NotificationBell from "./NotificationBell";
 import ThemeToggle from "./ThemeToggle";
-import { useChatUnread } from "../context/ChatUnreadContext";
+import { useChatUnreadIfAvailable } from "../context/ChatUnreadContext";
 
 export default function SiteHeader() {
   const { user, loading, logout } = useAuth();
-  const chatUnread = useChatUnread();
+  const chatUnread = useChatUnreadIfAvailable();
   const navigate = useNavigate();
 
   function handleLogout() {
