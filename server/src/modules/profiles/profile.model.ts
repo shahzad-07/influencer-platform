@@ -69,6 +69,7 @@ const profileSchema = new Schema(
     },
     location: { type: String, trim: true, default: "" },
     socialLinks: { type: [socialLinkSchema], default: [] },
+    imagePath: { type: String, trim: true, default: "" },
     portfolio: { type: [portfolioItemSchema], default: [] },
   },
   { timestamps: true },

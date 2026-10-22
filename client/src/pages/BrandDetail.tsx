@@ -10,6 +10,9 @@ interface Brand {
   website: string;
   description: string;
   location: string;
+  socialHandle: string;
+  socialLinks: { platform: string; url: string }[];
+  imageUrl: string;
 }
 
 // Only turn http(s) URLs into clickable links
@@ -82,11 +85,16 @@ export default function BrandDetail() {
         <div className="stack form-wide">
           <div className="detail-head">
             <div className="person-head">
-              <span className="avatar" aria-hidden="true">
-                {brand.name.trim().charAt(0).toUpperCase() || "?"}
-              </span>
+              {brand.imageUrl ? (
+                <img className="avatar avatar-image" src={brand.imageUrl} alt={`${brand.name} logo`} />
+              ) : (
+                <span className="avatar" aria-hidden="true">
+                  {brand.name.trim().charAt(0).toUpperCase() || "?"}
+                </span>
+              )}
               <div>
                 <h1>{brand.name}</h1>
+                {brand.socialHandle && <div className="muted small">{brand.socialHandle}</div>}
                 {brand.location && (
                   <div className="muted">{brand.location}</div>
                 )}
@@ -126,6 +134,17 @@ export default function BrandDetail() {
                 brand.website
               )}
             </p>
+          )}
+
+          {brand.socialLinks.length > 0 && (
+            <div className="stack">
+              <h2 className="h-sm">Social accounts</h2>
+              {brand.socialLinks.map((link, index) => (
+                <a key={`${link.platform}-${index}`} href={link.url} target="_blank" rel="noopener noreferrer">
+                  {link.platform}
+                </a>
+              ))}
+            </div>
           )}
         </div>
       )}

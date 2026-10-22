@@ -2,6 +2,15 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../lib/api";
 import AppLayout from "../components/AppLayout";
+import ProfileImageField from "../components/ProfileImageField";
+
+const PLATFORMS = ["INSTAGRAM", "YOUTUBE", "FACEBOOK", "X", "LINKEDIN"] as const;
+type Platform = (typeof PLATFORMS)[number];
+
+interface SocialLink {
+  platform: Platform;
+  url: string;
+}
 
 interface BrandProfileData {
   companyName: string;
@@ -9,6 +18,9 @@ interface BrandProfileData {
   website: string;
   description: string;
   location: string;
+  socialLinks: SocialLink[];
+  imagePath: string;
+  imageUrl: string;
 }
 
 export default function BrandProfile() {
@@ -17,9 +29,13 @@ export default function BrandProfile() {
   const [website, setWebsite] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
+  const [imagePath, setImagePath] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -28,11 +44,14 @@ export default function BrandProfile() {
     api<{ profile: BrandProfileData | null }>("/brands/me")
       .then(({ profile }) => {
         if (profile) {
-          setCompanyName(profile.companyName);
-          setIndustry(profile.industry);
-          setWebsite(profile.website);
-          setDescription(profile.description);
-          setLocation(profile.location);
+          setCompanyName(profile.companyName ?? "");
+          setIndustry(profile.industry ?? "");
+          setWebsite(profile.website ?? "");
+          setDescription(profile.description ?? "");
+          setLocation(profile.location ?? "");
+          setSocialLinks(profile.socialLinks ?? []);
+          setImagePath(profile.imagePath ?? "");
+          setImageUrl(profile.imageUrl ?? "");
         }
       })
       .catch((err) =>
@@ -55,6 +74,8 @@ export default function BrandProfile() {
           website,
           description,
           location,
+          socialLinks,
+          imagePath,
         }),
       });
       setMessage("Profile saved!");
@@ -81,7 +102,18 @@ export default function BrandProfile() {
           <p className="muted">Creators see this when they browse brands.</p>
         </div>
 
-        <p className="muted">Company name, industry and city are required before you can send a deal offer. Website and description are optional.</p>
+        <p className="muted">Company name, industry, city and at least one social account are required before you can send a deal offer. Website, description and logo are optional.</p>
+
+        <ProfileImageField
+          label="Brand logo or profile photo (optional)"
+          endpoint="/brands/me/image-upload"
+          imageUrl={imageUrl}
+          onImageChange={(path, url) => {
+            setImagePath(path);
+            setImageUrl(url);
+          }}
+          onBusyChange={setImageUploading}
+        />
 
         <div className="field">
           <label htmlFor="companyName">Company name</label>
@@ -92,6 +124,48 @@ export default function BrandProfile() {
             maxLength={100}
             required
           />
+        </div>
+
+        <div className="stack">
+          <h2 className="h-sm">Social accounts (at least one to send offers)</h2>
+          {socialLinks.map((link, index) => (
+            <div key={index} className="row row-links">
+              <select
+                className="input"
+                aria-label={`Social platform ${index + 1}`}
+                value={link.platform}
+                onChange={(event) => setSocialLinks((current) => current.map((item, i) =>
+                  i === index ? { ...item, platform: event.target.value as Platform } : item,
+                ))}
+              >
+                {PLATFORMS.map((platform) => <option key={platform} value={platform}>{platform}</option>)}
+              </select>
+              <input
+                className="input"
+                type="url"
+                aria-label={`Social account link ${index + 1}`}
+                placeholder="https://..."
+                value={link.url}
+                onChange={(event) => setSocialLinks((current) => current.map((item, i) =>
+                  i === index ? { ...item, url: event.target.value } : item,
+                ))}
+                required
+              />
+              <button
+                className="btn btn-outline btn-sm"
+                type="button"
+                onClick={() => setSocialLinks((current) => current.filter((_, i) => i !== index))}
+              >Remove</button>
+            </div>
+          ))}
+          {socialLinks.length < 5 && (
+            <button
+              className="btn btn-outline btn-sm self-start"
+              type="button"
+              onClick={() => setSocialLinks((current) => [...current, { platform: "INSTAGRAM", url: "" }])}
+            >+ Add social account</button>
+          )}
+          <span className="hint">Add up to five public brand social links.</span>
         </div>
 
         <div className="field">
@@ -151,7 +225,7 @@ export default function BrandProfile() {
           </p>
         )}
 
-        <button className="btn btn-primary" type="submit" disabled={saving}>
+        <button className="btn btn-primary" type="submit" disabled={saving || imageUploading}>
           {saving ? "Saving..." : "Save profile"}
         </button>
       </form>

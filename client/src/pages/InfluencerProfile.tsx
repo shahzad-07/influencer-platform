@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { LANGUAGES, MAX_LANGUAGES } from "../lib/languages";
 import type { Language } from "../lib/languages";
 import AppLayout from "../components/AppLayout";
+import ProfileImageField from "../components/ProfileImageField";
 
 const PLATFORMS = [
   "INSTAGRAM",
@@ -39,6 +40,8 @@ interface Profile {
   languages?: string[]; // older profiles may not have it
   location: string;
   socialLinks: SocialLink[];
+  imagePath?: string;
+  imageUrl?: string;
   portfolio?: PortfolioItem[]; // older profiles may not have it
 }
 
@@ -49,10 +52,13 @@ export default function InfluencerProfile() {
   const [followerCount, setFollowerCount] = useState("0");
   const [languages, setLanguages] = useState<Language[]>([]);
   const [links, setLinks] = useState<SocialLink[]>([]);
+  const [imagePath, setImagePath] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -72,6 +78,8 @@ export default function InfluencerProfile() {
             ),
           );
           setLinks(profile.socialLinks);
+          setImagePath(profile.imagePath ?? "");
+          setImageUrl(profile.imageUrl ?? "");
           setPortfolio(
             (profile.portfolio ?? []).map((p) => ({
               ...p,
@@ -148,6 +156,7 @@ export default function InfluencerProfile() {
           followerCount: Number(followerCount),
           languages,
           socialLinks: links,
+          imagePath,
           portfolio,
         }),
       });
@@ -171,6 +180,17 @@ export default function InfluencerProfile() {
     <AppLayout>
       <form className="stack form-wide" onSubmit={handleSubmit}>
         <h1>My profile</h1>
+
+        <ProfileImageField
+          label="Profile photo (optional)"
+          endpoint="/profiles/me/image-upload"
+          imageUrl={imageUrl}
+          onImageChange={(path, url) => {
+            setImagePath(path);
+            setImageUrl(url);
+          }}
+          onBusyChange={setImageUploading}
+        />
 
         <div className="field">
           <label htmlFor="bio">Bio</label>
@@ -398,7 +418,7 @@ export default function InfluencerProfile() {
           </p>
         )}
 
-        <button className="btn btn-primary" type="submit" disabled={saving}>
+        <button className="btn btn-primary" type="submit" disabled={saving || imageUploading}>
           {saving ? "Saving..." : "Save profile"}
         </button>
       </form>

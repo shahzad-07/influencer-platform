@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { z } from "zod";
 import { ProfileModel, LANGUAGES } from "../profiles/profile.model";
 import { authenticate, requireRole } from "../auth/auth.middleware";
+import { getProfileImageUrl } from "../profiles/profile-image-storage";
 
 const router = Router();
 
@@ -55,6 +56,8 @@ router.get("/", authenticate, requireRole("BRAND"), async (req, res) => {
       languages: p.languages ?? [],
       location: p.location,
       socialLinks: p.socialLinks,
+      socialHandle: getSocialHandle(p.socialLinks?.[0]?.platform, p.socialLinks?.[0]?.url),
+      imageUrl: getProfileImageUrl(p.imagePath),
     }));
 
   res.json({ influencers, total, page, limit });
@@ -86,9 +89,27 @@ router.get("/:id", authenticate, requireRole("BRAND"), async (req, res) => {
       languages: profile.languages ?? [],
       location: profile.location,
       socialLinks: profile.socialLinks,
+      socialHandle: getSocialHandle(profile.socialLinks?.[0]?.platform, profile.socialLinks?.[0]?.url),
+      imageUrl: getProfileImageUrl(profile.imagePath),
       portfolio: profile.portfolio ?? [],
     },
   });
 });
 
 export default router;
+
+function getSocialHandle(platform?: string, url?: string) {
+  if (!platform || !url) return "";
+  try {
+    const segments = new URL(url).pathname.split("/").filter(Boolean);
+    const pathIndex = platform === "LINKEDIN" && ["in", "company"].includes(segments[0]?.toLowerCase())
+      ? 1
+      : platform === "YOUTUBE" && ["channel", "c", "user"].includes(segments[0]?.toLowerCase())
+        ? 1
+        : 0;
+    const handle = segments[pathIndex]?.replace(/^@/, "");
+    return handle ? `@${handle}` : "";
+  } catch {
+    return "";
+  }
+}

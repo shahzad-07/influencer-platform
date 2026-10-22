@@ -1,5 +1,17 @@
 import { Schema, model } from "mongoose";
 
+const brandSocialLinkSchema = new Schema(
+  {
+    platform: {
+      type: String,
+      enum: ["INSTAGRAM", "YOUTUBE", "FACEBOOK", "X", "LINKEDIN"],
+      required: true,
+    },
+    url: { type: String, required: true, trim: true, maxlength: 300 },
+  },
+  { _id: false },
+);
+
 const brandProfileSchema = new Schema(
   {
     user: {
@@ -13,6 +25,8 @@ const brandProfileSchema = new Schema(
     website: { type: String, trim: true, maxlength: 200, default: "" },
     description: { type: String, trim: true, maxlength: 500, default: "" },
     location: { type: String, trim: true, maxlength: 100, default: "" },
+    socialLinks: { type: [brandSocialLinkSchema], default: [] },
+    imagePath: { type: String, trim: true, default: "" },
   },
   { timestamps: true },
 );

@@ -1278,6 +1278,22 @@ svg {
   font: 800 1.1rem/1 var(--font-head);
   flex: none;
 }
+.avatar-image {
+  object-fit: cover;
+}
+.profile-image-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+.profile-image-placeholder {
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  font-size: 1.6rem;
+}
 .tags {
   display: flex;
   flex-wrap: wrap;

@@ -56,7 +56,7 @@ export default function CreateOffer() {
     Promise.all([
       api<{ influencer: { name: string } }>(`/influencers/${influencerId}`),
       api<{ prices: Price[] }>(`/pricing/influencer/${influencerId}`),
-      api<{ profile: { companyName?: string; industry?: string; location?: string } | null }>("/brands/me"),
+      api<{ profile: { companyName?: string; industry?: string; location?: string; socialLinks?: { url: string }[] } | null }>("/brands/me"),
       campaignId
         ? api<{ campaign: { title: string; brief: string; collaborationType: CollabType; barterDescription: string } }>(`/campaigns/${campaignId}`)
         : Promise.resolve(null),
@@ -68,7 +68,8 @@ export default function CreateOffer() {
         setBrandProfileComplete(Boolean(
           brandRes.profile?.companyName?.trim() &&
           brandRes.profile.industry?.trim() &&
-          brandRes.profile.location?.trim()
+          brandRes.profile.location?.trim() &&
+          brandRes.profile.socialLinks?.some((link) => link.url.trim())
         ));
         if (campaignRes?.campaign) {
           setTitle(campaignRes.campaign.title);
@@ -121,7 +122,7 @@ export default function CreateOffer() {
     setError("");
 
     if (!brandProfileComplete) {
-      setError("Complete your company name, industry and city in your brand profile before sending an offer.");
+      setError("Complete your company name, industry, city and at least one social account in your brand profile before sending an offer.");
       return;
     }
 
@@ -184,8 +185,8 @@ export default function CreateOffer() {
 
         {!brandProfileComplete && (
           <p className="notice notice-warning" role="status">
-            Complete your company name, industry and city before sending a deal. {" "}
-            <Link to="/brand/profile">Complete brand profile</Link>
+            Complete your company name, industry, city and add a social account before sending a deal. {" "}
+            <Link to="/brand/profile">Complete your brand profile with name, industry, city and a social account</Link>
           </p>
         )}
 

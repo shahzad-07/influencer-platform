@@ -10,6 +10,8 @@ interface BrandCard {
   industry: string;
   location: string;
   description: string;
+  socialHandle: string;
+  imageUrl: string;
 }
 
 interface ListResponse {
@@ -139,11 +141,16 @@ export default function BrowseBrands() {
               {data.brands.map((b) => (
                 <article key={b.id} className="person">
                   <div className="person-head">
-                    <span className="avatar" aria-hidden="true">
-                      {b.name.trim().charAt(0).toUpperCase() || "?"}
-                    </span>
+                    {b.imageUrl ? (
+                      <img className="avatar avatar-image" src={b.imageUrl} alt={`${b.name} logo`} loading="lazy" />
+                    ) : (
+                      <span className="avatar" aria-hidden="true">
+                        {b.name.trim().charAt(0).toUpperCase() || "?"}
+                      </span>
+                    )}
                     <div>
                       <h3>{b.name}</h3>
+                      {b.socialHandle && <div className="muted small">{b.socialHandle}</div>}
                       {b.location && (
                         <div className="muted small">{b.location}</div>
                       )}

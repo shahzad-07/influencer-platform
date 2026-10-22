@@ -26,6 +26,8 @@ interface Influencer {
   languages?: string[]; // older profiles may not have it
   location: string;
   socialLinks: SocialLink[];
+  socialHandle: string;
+  imageUrl: string;
   portfolio?: PortfolioItem[]; // older profiles may not have it
 }
 
@@ -120,11 +122,16 @@ export default function InfluencerDetail() {
         <div className="stack">
           <div className="detail-head">
             <div className="person-head">
-              <span className="avatar" aria-hidden="true">
-                {influencer.name.trim().charAt(0).toUpperCase() || "?"}
-              </span>
+              {influencer.imageUrl ? (
+                <img className="avatar avatar-image" src={influencer.imageUrl} alt={`${influencer.name} profile`} />
+              ) : (
+                <span className="avatar" aria-hidden="true">
+                  {influencer.name.trim().charAt(0).toUpperCase() || "?"}
+                </span>
+              )}
               <div>
                 <h1>{influencer.name}</h1>
+                {influencer.socialHandle && <div className="muted">{influencer.socialHandle}</div>}
                 {influencer.location && (
                   <div className="muted">{influencer.location}</div>
                 )}

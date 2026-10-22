@@ -20,6 +20,8 @@ interface InfluencerCard {
   languages?: string[];
   location: string;
   socialLinks: SocialLink[];
+  socialHandle: string;
+  imageUrl: string;
 }
 
 interface ListResponse {
@@ -172,11 +174,16 @@ export default function BrowseInfluencers() {
               {data.influencers.map((inf) => (
                 <article key={inf.id} className="person">
                   <div className="person-head">
-                    <span className="avatar" aria-hidden="true">
-                      {inf.name.trim().charAt(0).toUpperCase() || "?"}
-                    </span>
+                    {inf.imageUrl ? (
+                      <img className="avatar avatar-image" src={inf.imageUrl} alt={`${inf.name} profile`} />
+                    ) : (
+                      <span className="avatar" aria-hidden="true">
+                        {inf.name.trim().charAt(0).toUpperCase() || "?"}
+                      </span>
+                    )}
                     <div>
-                      <h3>{inf.name}</h3>
+                      <h3>{inf.socialHandle || inf.name}</h3>
+                      {inf.socialHandle && <div className="muted small">{inf.name}</div>}
                       {inf.location && (
                         <div className="muted small">{inf.location}</div>
                       )}
