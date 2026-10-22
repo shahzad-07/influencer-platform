@@ -50,6 +50,31 @@ const paymentSchema = new Schema(
   { _id: false },
 );
 
+const visitPlanSchema = new Schema(
+  {
+    mode: { type: String, enum: ["FIXED", "FLEXIBLE"], required: true },
+    // Fixed visit time is stored as an instant; the client enters and displays IST.
+    scheduledAt: { type: Date },
+    // Flexible windows are calendar dates, not blocked calendar slots.
+    startDate: { type: String, trim: true, maxlength: 10 },
+    endDate: { type: String, trim: true, maxlength: 10 },
+    updatedAt: { type: Date, default: Date.now },
+    updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
+  },
+  { _id: false },
+);
+
+const scheduleSchema = new Schema(
+  {
+    visitPlan: { type: visitPlanSchema, default: null },
+    // A date-only reminder, stored as YYYY-MM-DD.
+    goLiveDeadline: { type: String, trim: true, maxlength: 10, default: "" },
+    updatedAt: { type: Date, default: Date.now },
+    updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
+  },
+  { _id: false },
+);
+
 const dealSchema = new Schema(
   {
     brand: { type: Schema.Types.ObjectId, ref: "User", required: true },
@@ -59,6 +84,7 @@ const dealSchema = new Schema(
     title: { type: String, required: true, trim: true, maxlength: 120 },
     brief: { type: String, required: true, trim: true, maxlength: 3000 },
     deadline: { type: Date },
+    schedule: { type: scheduleSchema, default: () => ({}) },
 
     // Paid, barter, or both. Deals made before this field existed are paid.
     collaborationType: {

@@ -142,6 +142,31 @@ const draftUploadSchema = z.object({
   }
 });
 
+const validDateOnly = (value: string) => {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
+const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(validDateOnly, "Enter a real calendar date");
+const fixedVisitSchema = z.object({
+  mode: z.literal("FIXED"),
+  // Local date/time string entered as IST, e.g. 2026-10-25T18:30.
+  scheduledAt: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+    .refine((value) => validDateOnly(value.slice(0, 10)) && Number(value.slice(11, 13)) < 24 && Number(value.slice(14, 16)) < 60, "Enter a real date and time"),
+});
+const flexibleVisitSchema = z.object({
+  mode: z.literal("FLEXIBLE"),
+  startDate: dateOnly,
+  endDate: dateOnly,
+}).refine((visit) => visit.endDate >= visit.startDate, {
+  path: ["endDate"],
+  message: "End date must be on or after the start date",
+});
+const scheduleUpdateSchema = z.object({
+  visitPlan: z.discriminatedUnion("mode", [fixedVisitSchema, flexibleVisitSchema]).nullable(),
+  goLiveDeadline: z.union([z.literal(""), dateOnly]),
+});
+
 // Deals made before collaboration types existed have no value, and they are paid
 const collabOf = (deal: { collaborationType?: string | null }) =>
   (deal.collaborationType ?? "PAID") as CollabType;
@@ -262,6 +287,70 @@ router.get("/", async (req, res) => {
         };
       }),
   });
+});
+
+// BOTH: list scheduled deals for the signed-in participant.
+// Keep this before /:id so "schedule" is not treated as a deal id.
+router.get("/schedule", async (req, res) => {
+  const { userId, role } = req.user!;
+  const deals = await DealModel.find({
+    ...(role === "BRAND" ? { brand: userId } : { influencer: userId }),
+  })
+    .sort({ "schedule.updatedAt": -1, updatedAt: -1 })
+    .limit(100)
+    .populate<{ brand: PopUser; influencer: PopUser }>("brand influencer", "name")
+    .lean();
+
+  res.json({
+    schedules: deals.filter((d) => d.brand && d.influencer).map((d) => {
+      const other = role === "BRAND" ? d.influencer : d.brand;
+      return {
+        dealId: String(d._id),
+        title: d.title,
+        status: d.status,
+        otherUser: { id: String(other._id), name: other.name },
+        visitPlan: d.schedule?.visitPlan ?? null,
+        goLiveDeadline: d.schedule?.goLiveDeadline ?? "",
+        updatedAt: d.schedule?.updatedAt ?? d.updatedAt,
+      };
+    }),
+  });
+});
+
+// BOTH participants can record or change a visit plan and optional go-live date.
+// The update is visible on Schedule only; it does not notify either participant.
+router.put("/:id/schedule", async (req, res) => {
+  const parsed = scheduleUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
+  }
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(404).json({ message: "Deal not found" });
+  }
+
+  const { userId } = req.user!;
+  const deal = await DealModel.findOne({
+    _id: req.params.id,
+    $or: [{ brand: userId }, { influencer: userId }],
+  }).select("_id");
+  if (!deal) return res.status(404).json({ message: "Deal not found" });
+
+  const { visitPlan, goLiveDeadline } = parsed.data;
+  const storedVisitPlan = visitPlan?.mode === "FIXED"
+    ? { mode: "FIXED", scheduledAt: new Date(`${visitPlan.scheduledAt}:00+05:30`) }
+    : visitPlan;
+  await DealModel.updateOne(
+    { _id: deal._id },
+    {
+      $set: {
+        "schedule.visitPlan": storedVisitPlan,
+        "schedule.goLiveDeadline": goLiveDeadline,
+        "schedule.updatedAt": new Date(),
+        "schedule.updatedBy": userId,
+      },
+    },
+  );
+  res.json({ ok: true });
 });
 
 // PARTICIPANTS: one deal
