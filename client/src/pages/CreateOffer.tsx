@@ -35,6 +35,7 @@ export default function CreateOffer() {
 
   const [name, setName] = useState("");
   const [prices, setPrices] = useState<Price[]>([]);
+  const [brandProfileComplete, setBrandProfileComplete] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [title, setTitle] = useState("");
@@ -55,14 +56,20 @@ export default function CreateOffer() {
     Promise.all([
       api<{ influencer: { name: string } }>(`/influencers/${influencerId}`),
       api<{ prices: Price[] }>(`/pricing/influencer/${influencerId}`),
+      api<{ profile: { companyName?: string; industry?: string; location?: string } | null }>("/brands/me"),
       campaignId
         ? api<{ campaign: { title: string; brief: string; collaborationType: CollabType; barterDescription: string } }>(`/campaigns/${campaignId}`)
         : Promise.resolve(null),
     ])
-      .then(([profileRes, priceRes, campaignRes]) => {
+      .then(([profileRes, priceRes, brandRes, campaignRes]) => {
         if (cancelled) return;
         setName(profileRes.influencer.name);
         setPrices(priceRes.prices);
+        setBrandProfileComplete(Boolean(
+          brandRes.profile?.companyName?.trim() &&
+          brandRes.profile.industry?.trim() &&
+          brandRes.profile.location?.trim()
+        ));
         if (campaignRes?.campaign) {
           setTitle(campaignRes.campaign.title);
           setBrief(campaignRes.campaign.brief);
@@ -112,6 +119,11 @@ export default function CreateOffer() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (!brandProfileComplete) {
+      setError("Complete your company name, industry and city in your brand profile before sending an offer.");
+      return;
+    }
 
     if (paid && !validAmount) {
       setError("Enter an amount of at least ₹1.");
@@ -169,6 +181,13 @@ export default function CreateOffer() {
 
       <div className="stack form-wide">
         <h1>Make an offer{name ? ` to ${name}` : ""}</h1>
+
+        {!brandProfileComplete && (
+          <p className="notice notice-warning" role="status">
+            Complete your company name, industry and city before sending a deal. {" "}
+            <Link to="/brand/profile">Complete brand profile</Link>
+          </p>
+        )}
 
         {prices.length > 0 && (
           <section className="card">
@@ -327,7 +346,7 @@ export default function CreateOffer() {
           <button
             className="btn btn-primary"
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !brandProfileComplete}
           >
             {submitting ? "Sending..." : "Send offer"}
           </button>

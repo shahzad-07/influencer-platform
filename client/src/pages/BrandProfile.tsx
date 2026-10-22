@@ -81,6 +81,8 @@ export default function BrandProfile() {
           <p className="muted">Creators see this when they browse brands.</p>
         </div>
 
+        <p className="muted">Company name, industry and city are required before you can send a deal offer. Website and description are optional.</p>
+
         <div className="field">
           <label htmlFor="companyName">Company name</label>
           <input
@@ -88,6 +90,7 @@ export default function BrandProfile() {
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             maxLength={100}
+            required
           />
         </div>
 
@@ -99,6 +102,7 @@ export default function BrandProfile() {
             onChange={(e) => setIndustry(e.target.value)}
             placeholder="restaurant, fashion, tech..."
             maxLength={50}
+            required
           />
         </div>
 
@@ -132,6 +136,7 @@ export default function BrandProfile() {
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             maxLength={100}
+            required
           />
         </div>
 

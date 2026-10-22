@@ -34,6 +34,7 @@ import {
 } from "./draft-storage";
 import { CampaignModel } from "../campaigns/campaign.model";
 import { CampaignApplicationModel } from "../campaigns/campaign-application.model";
+import { BrandProfileModel } from "../brands/brand.model";
 
 const router = Router();
 
@@ -214,6 +215,19 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
     deadline,
   } = parsed.data;
   const brandId = req.user!.userId;
+  const brandProfile = await BrandProfileModel.findOne({ user: brandId })
+    .select("companyName industry location")
+    .lean();
+  if (
+    !brandProfile?.companyName?.trim() ||
+    !brandProfile.industry?.trim() ||
+    !brandProfile.location?.trim()
+  ) {
+    return res.status(409).json({
+      message: "Complete your brand profile with company name, industry and city before sending a deal offer.",
+      code: "BRAND_PROFILE_INCOMPLETE",
+    });
+  }
   const paid = isPaid(collaborationType);
 
   let campaignApplicationReserved = false;

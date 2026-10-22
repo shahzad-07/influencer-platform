@@ -12,6 +12,7 @@ import { useAuth } from "../context/AuthContext";
 import PaymentSharePanel from "../components/PaymentSharePanel";
 import PaymentTerms from "../components/PaymentTerms";
 import AppLayout from "../components/AppLayout";
+import { useNotifications } from "../context/NotificationContext";
 
 interface PaymentRecord {
   stage: "ADVANCE" | "FINAL";
@@ -191,6 +192,7 @@ const STEP_TEXT: Record<string, { mine: string; theirs: string }> = {
 export default function DealDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { markDealRead } = useNotifications();
 
   const [deal, setDeal] = useState<Deal | null>(null);
   const [loading, setLoading] = useState(true);
@@ -217,6 +219,7 @@ export default function DealDetail() {
         if (!cancelled) {
           setDeal(res.deal);
           setLoadError("");
+          void markDealRead(res.deal.id).catch(() => undefined);
         }
       })
       .catch((err) => {
@@ -232,7 +235,7 @@ export default function DealDetail() {
     return () => {
       cancelled = true;
     };
-  }, [id, refreshKey]);
+  }, [id, refreshKey, markDealRead]);
 
   function pickAction(action: string) {
     setSelected(action);
@@ -514,6 +517,16 @@ export default function DealDetail() {
           )}
         </section>
 
+        {paid && (
+          <PaymentSharePanel
+            dealId={deal.id}
+            status={deal.status}
+            role={isBrand ? "BRAND" : "INFLUENCER"}
+            otherName={otherName}
+            payments={deal.payments}
+          />
+        )}
+
         {/* Summary: total and progress (money), dates */}
         <section className="card">
           {paid ? (
@@ -642,14 +655,6 @@ export default function DealDetail() {
         {/* Payment sharing and records only exist when money is involved */}
         {paid && (
           <>
-            <PaymentSharePanel
-              dealId={deal.id}
-              status={deal.status}
-              role={isBrand ? "BRAND" : "INFLUENCER"}
-              otherName={otherName}
-              payments={deal.payments}
-            />
-
             {/* Payment records */}
             <section className="stack">
               <h2>Payments</h2>

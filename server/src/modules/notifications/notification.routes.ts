@@ -40,6 +40,19 @@ router.get("/", async (req, res) => {
   });
 });
 
+// Mark this user's unread deal notifications as read when they open the deal.
+router.patch("/deal/:dealId/read", async (req, res) => {
+  const { dealId } = req.params;
+  if (!mongoose.isValidObjectId(dealId)) {
+    return res.status(400).json({ message: "Invalid deal id" });
+  }
+  const result = await NotificationModel.updateMany(
+    { recipient: req.user!.userId, deal: dealId, readAt: null },
+    { $set: { readAt: new Date() } },
+  );
+  res.json({ updated: result.modifiedCount });
+});
+
 // Mark one of the current user's notifications as read. Safe to repeat.
 router.patch("/:id/read", async (req, res) => {
   const { id } = req.params;

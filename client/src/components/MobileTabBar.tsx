@@ -1,8 +1,8 @@
 import { NavLink } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
-import NotificationBell from "./NotificationBell";
 import { useChatUnread } from "../context/ChatUnreadContext";
+import { useNotifications } from "../context/NotificationContext";
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -23,6 +23,7 @@ function Icon({ children }: { children: ReactNode }) {
 export default function MobileTabBar() {
   const { user } = useAuth();
   const chatUnread = useChatUnread();
+  const { unreadCount } = useNotifications();
   if (!user) return null;
 
   const isBrand = user.role === "BRAND";
@@ -69,10 +70,13 @@ export default function MobileTabBar() {
           )}
         </span>
       </NavLink>
-      <div className="notification-tab">
-        <NotificationBell />
-        <span>Alerts</span>
-      </div>
+      <NavLink to="/notifications" className="notification-tab">
+        <span className="notification-tab-icon">
+          <Icon><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></Icon>
+          {unreadCount > 0 && <span className="notification-count">{unreadCount > 99 ? "99+" : unreadCount}</span>}
+        </span>
+        Alerts
+      </NavLink>
       <NavLink to={profilePath}>
         <Icon>
           <circle cx="12" cy="8" r="4" />

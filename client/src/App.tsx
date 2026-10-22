@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useLayoutEffect } from "react";
 import { useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Landing from "./pages/Landing";
@@ -23,6 +24,15 @@ import Schedule from "./pages/Schedule";
 import Campaigns from "./pages/Campaigns";
 import CampaignNew from "./pages/CampaignNew";
 import CampaignDetail from "./pages/CampaignDetail";
+import Notifications from "./pages/Notifications";
+
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+  useLayoutEffect(() => {
+    if (!hash) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname, hash]);
+  return null;
+}
 
 // "/" shows the public home page to visitors and sends logged-in people to their dashboard
 function Home() {
@@ -36,6 +46,8 @@ function Home() {
 
 export default function App() {
   return (
+    <>
+    <ScrollToTop />
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
@@ -103,6 +115,14 @@ export default function App() {
         element={
           <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
             <Messages />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute role={["BRAND", "INFLUENCER"]}>
+            <Notifications />
           </ProtectedRoute>
         }
       />
@@ -196,5 +216,6 @@ export default function App() {
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }

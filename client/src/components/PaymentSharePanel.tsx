@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { api } from '../lib/api';
@@ -26,14 +26,6 @@ type ViewResponse = {
   upiUri?: string | null;
 };
 
-type LogEntry = {
-  _id: string;
-  event: 'SHARED' | 'REVOKED' | 'VIEWED';
-  stage: 'ADVANCE' | 'FINAL';
-  by: 'BRAND' | 'INFLUENCER';
-  at: string;
-};
-
 const currentStage = (status: string): 'ADVANCE' | 'FINAL' | null => {
   if (status === 'ACCEPTED') return 'ADVANCE';
   if (status === 'LINK_VERIFIED') return 'FINAL';
@@ -57,36 +49,18 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   );
 }
 
-function eventLabel(entry: LogEntry) {
-  const stage = entry.stage === 'ADVANCE' ? 'advance' : 'final payment';
-  if (entry.event === 'VIEWED') return `${entry.by === 'BRAND' ? 'Brand' : 'Creator'} viewed ${stage} details`;
-  if (entry.event === 'SHARED') return `Creator shared ${stage} details`;
-  return `Creator ended an earlier ${stage} share`;
-}
-
 export default function PaymentSharePanel({ dealId, status, role, otherName, payments }: Props) {
   const stage = currentStage(status);
-  const [log, setLog] = useState<LogEntry[]>([]);
   const [detailsSaved, setDetailsSaved] = useState<boolean | null>(null);
   const [view, setView] = useState<ViewResponse | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const reloadLog = useCallback(async () => {
-    try {
-      const response = await api<{ log?: LogEntry[] }>(`/payment-shares/deal/${dealId}`);
-      setLog(response.log || []);
-    } catch {
-      setLog([]);
-    }
-  }, [dealId]);
-
   useEffect(() => {
     setView(null);
     setQrDataUrl('');
     setError('');
-    void reloadLog();
     if (role === 'INFLUENCER') {
       api<{ details: PaymentDetails | null }>('/payment-details/me')
         .then((response) => setDetailsSaved(Boolean(response.details)))
@@ -94,7 +68,7 @@ export default function PaymentSharePanel({ dealId, status, role, otherName, pay
     } else {
       setDetailsSaved(null);
     }
-  }, [dealId, role, reloadLog]);
+  }, [dealId, role, status]);
 
   const showPaymentDetails = async () => {
     if (!stage) return;
@@ -104,7 +78,6 @@ export default function PaymentSharePanel({ dealId, status, role, otherName, pay
       const data = await api<ViewResponse>(`/payment-shares/deal/${dealId}/${stage.toLowerCase()}/view`);
       setView(data);
       setQrDataUrl(data.upiUri ? await QRCode.toDataURL(data.upiUri, { width: 220, margin: 1 }) : '');
-      await reloadLog();
     } catch (err: any) {
       setError(err instanceof Error ? err.message : 'Could not load payment details. Please try again.');
     } finally {
@@ -112,7 +85,7 @@ export default function PaymentSharePanel({ dealId, status, role, otherName, pay
     }
   };
 
-  if (!stage && log.length === 0) return null;
+  if (!stage) return null;
   const amountPaise = stage === 'ADVANCE' ? payments?.advance : payments?.final;
   const stageName = stage === 'ADVANCE' ? 'advance' : 'final payment';
 
@@ -121,7 +94,7 @@ export default function PaymentSharePanel({ dealId, status, role, otherName, pay
       <div className="card-header">
         <div>
           <h3 id="payment-access-title">Payment details</h3>
-          <p className="muted">Payment details are available to the brand at the relevant payment stage. Every view is recorded.</p>
+          <p className="muted">Payment details are available to the brand at the relevant payment stage.</p>
         </div>
       </div>
 
@@ -171,19 +144,6 @@ export default function PaymentSharePanel({ dealId, status, role, otherName, pay
 
       {error && <p className="notice notice-error" role="alert">{error}</p>}
 
-      {log.length > 0 && (
-        <div className="payment-share-log">
-          <h4>Payment detail access</h4>
-          <ul>
-            {log.map((entry) => (
-              <li key={entry._id}>
-                <span>{eventLabel(entry)}</span>
-                <time dateTime={entry.at}>{new Date(entry.at).toLocaleString()}</time>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </section>
   );
 }
