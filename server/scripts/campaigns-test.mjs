@@ -108,7 +108,8 @@ async function main() {
     const brand = await register("BRAND");
     const creator = await register("INFLUENCER");
     const secondCreator = await register("INFLUENCER");
-    const ineligibleCreator = await register("INFLUENCER");
+    const differentProfileCreator = await register("INFLUENCER");
+    const graceCreator = await register("INFLUENCER");
 
     for (const token of [creator.token, secondCreator.token]) {
       const profile = await request("/profiles/me", { method: "PUT", token, body: {
@@ -116,6 +117,14 @@ async function main() {
       } });
       check("creator can save self-declared campaign profile fields", profile.status === 200 && profile.data.profile.followerCount === 90000);
     }
+    const differentProfile = await request("/profiles/me", { method: "PUT", token: differentProfileCreator.token, body: {
+      niches: ["travel"], followerCount: 9000, languages: ["Hindi"],
+    } });
+    check("creator can save a profile outside campaign preferences", differentProfile.status === 200);
+    const graceProfile = await request("/profiles/me", { method: "PUT", token: graceCreator.token, body: {
+      niches: ["food"], followerCount: 9000, languages: ["Kannada"],
+    } });
+    check("creator can save one language and 90 percent of preferred followers", graceProfile.status === 200);
 
     check("logged-out visitor cannot browse campaigns", (await request("/campaigns")).status === 401);
     check("creator cannot post a campaign", (await request("/campaigns", { method: "POST", token: creator.token, body: {} })).status === 403);
@@ -123,7 +132,7 @@ async function main() {
     const campaignResult = await request("/campaigns", { method: "POST", token: brand.token, body: {
       title: "Campaign integration check",
       brief: "Create one short food video for this temporary integration campaign.",
-      niche: "food", minFollowers: 50000, languages: ["English"], creatorSlots: 1,
+      niche: "food", minFollowers: 10000, languages: ["English", "Kannada"], creatorSlots: 1,
       collaborationType: "PAID", barterDescription: "",
     } });
     const campaignId = campaignResult.data.campaign?.id;
@@ -131,19 +140,25 @@ async function main() {
     check("brand can post a campaign", campaignResult.status === 201 && Boolean(campaignId));
 
     const creatorCampaigns = await request("/campaigns", { token: creator.token });
-    check("eligible creator sees the open campaign", creatorCampaigns.status === 200 && creatorCampaigns.data.campaigns.some((item) => item.id === campaignId));
+    check("matching creator sees the open campaign", creatorCampaigns.status === 200 && creatorCampaigns.data.campaigns.some((item) => item.id === campaignId));
+    const differentProfileCampaigns = await request("/campaigns", { token: differentProfileCreator.token });
+    check("creator outside niche, language and follower preferences sees campaign", differentProfileCampaigns.status === 200 && differentProfileCampaigns.data.campaigns.some((item) => item.id === campaignId));
+    const graceCampaigns = await request("/campaigns", { token: graceCreator.token });
+    check("creator at 90 percent with one preferred language sees campaign", graceCampaigns.status === 200 && graceCampaigns.data.campaigns.some((item) => item.id === campaignId));
     const notifications = await request("/notifications", { token: creator.token });
     check("matched creator receives a campaign notification", notifications.data.notifications?.some((item) => item.action === "campaignNew" && item.campaignId === campaignId));
 
     const interest = await request(`/campaigns/${campaignId}/interest`, { method: "POST", token: creator.token });
-    check("eligible creator can express interest", interest.status === 201 && interest.data.status === "INTERESTED");
-    const ineligibleInterest = await request(`/campaigns/${campaignId}/interest`, { method: "POST", token: ineligibleCreator.token });
-    check("creator without matching profile cannot express interest", ineligibleInterest.status === 403);
+    check("creator matching preferred profile can express interest", interest.status === 201 && interest.data.status === "INTERESTED");
+    const differentProfileInterest = await request(`/campaigns/${campaignId}/interest`, { method: "POST", token: differentProfileCreator.token });
+    check("creator outside niche, language and follower preferences can express interest", differentProfileInterest.status === 201 && differentProfileInterest.data.status === "INTERESTED");
+    const graceInterest = await request(`/campaigns/${campaignId}/interest`, { method: "POST", token: graceCreator.token });
+    check("creator at 90 percent with one preferred language can express interest", graceInterest.status === 201 && graceInterest.data.status === "INTERESTED");
     const brandNotifications = await request("/notifications", { token: brand.token });
-    check("brand receives campaign interest notifications", brandNotifications.data.notifications?.filter((item) => item.action === "campaignInterest" && item.campaignId === campaignId).length === 1);
+    check("brand receives campaign interest notifications", brandNotifications.data.notifications?.filter((item) => item.action === "campaignInterest" && item.campaignId === campaignId).length === 3);
 
     const applicants = await request(`/campaigns/${campaignId}/applicants`, { token: brand.token });
-    check("brand can see applicants", applicants.status === 200 && applicants.data.applicants.length === 1);
+    check("brand can see applicants with matching and different profiles", applicants.status === 200 && applicants.data.applicants.length === 3);
     check("creator cannot access the brand applicant list", (await request(`/campaigns/${campaignId}/applicants`, { token: creator.token })).status === 403);
 
     const conversation = await request("/chat/conversations", { method: "POST", token: brand.token, body: { influencerId: creator.id } });

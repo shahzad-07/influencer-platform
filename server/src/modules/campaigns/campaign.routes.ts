@@ -32,13 +32,16 @@ const campaignSchema = z.object({
   }
 });
 
-function isEligible(
+function matchesCampaignNotificationPreferences(
   campaign: { niche: string; minFollowers: number; languages: string[] },
   profile: { niches: string[]; followerCount?: number; languages?: string[] },
 ) {
   const nicheMatches = profile.niches.some((niche) => niche.toLowerCase() === campaign.niche.toLowerCase());
-  const languagesMatch = campaign.languages.every((language) => (profile.languages ?? []).includes(language));
-  return nicheMatches && (profile.followerCount ?? 0) >= campaign.minFollowers && languagesMatch;
+  const followerFloor = Math.floor(campaign.minFollowers * 0.9);
+  const followersMatch = (profile.followerCount ?? 0) >= followerFloor;
+  const languagesMatch = campaign.languages.length === 0
+    || campaign.languages.some((language) => (profile.languages ?? []).includes(language));
+  return nicheMatches && followersMatch && languagesMatch;
 }
 
 function campaignView(campaign: any, applicationStatus?: string) {
@@ -63,31 +66,29 @@ function campaignView(campaign: any, applicationStatus?: string) {
   };
 }
 
-// BRANDS see their campaigns; creators see only currently open, eligible campaigns.
+// BRANDS see their campaigns; all creators can discover currently open campaigns.
 router.get("/", async (req, res) => {
   if (req.user!.role === "BRAND") {
     const campaigns = await CampaignModel.find({ brand: req.user!.userId }).sort({ createdAt: -1 }).limit(100).populate("brand", "name").lean();
     return res.json({ campaigns: campaigns.map((item) => campaignView(item)) });
   }
 
-  const profile = await ProfileModel.findOne({ user: req.user!.userId }).lean();
-  if (!profile) return res.json({ campaigns: [] });
   const campaigns = await CampaignModel.find({ status: "OPEN", $or: [{ deadline: null }, { deadline: { $gt: new Date() } }] })
     .sort({ createdAt: -1 }).limit(200).populate("brand", "name").lean();
-  const eligible = campaigns.filter((item) => isEligible(item, profile) && item.filledSlots < item.creatorSlots);
-  const applications = await CampaignApplicationModel.find({ campaign: { $in: eligible.map((item) => item._id) }, influencer: req.user!.userId }).select("campaign status").lean();
+  const available = campaigns.filter((item) => item.filledSlots < item.creatorSlots);
+  const applications = await CampaignApplicationModel.find({ campaign: { $in: available.map((item) => item._id) }, influencer: req.user!.userId }).select("campaign status").lean();
   const statusByCampaign = new Map(applications.map((item) => [String(item.campaign), item.status]));
-  return res.json({ campaigns: eligible.map((item) => campaignView(item, statusByCampaign.get(String(item._id)))) });
+  return res.json({ campaigns: available.map((item) => campaignView(item, statusByCampaign.get(String(item._id)))) });
 });
 
-// BRAND: create a campaign and notify eligible creators.
+// BRAND: create a campaign and notify creators who best match its preferences.
 router.post("/", requireRole("BRAND"), async (req, res) => {
   const parsed = campaignSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
   const campaign = await CampaignModel.create({ ...parsed.data, brand: req.user!.userId });
 
   const profiles = await ProfileModel.find({}).select("user niches followerCount languages").limit(5000).lean();
-  const matches = profiles.filter((profile) => isEligible(campaign, profile)).slice(0, 500);
+  const matches = profiles.filter((profile) => matchesCampaignNotificationPreferences(campaign, profile)).slice(0, 500);
   const recipientIds = matches.map((profile) => String(profile.user));
   if (recipientIds.length) {
     try {
@@ -119,22 +120,18 @@ router.get("/:id", async (req, res) => {
   const application = req.user!.role === "INFLUENCER"
     ? await CampaignApplicationModel.findOne({ campaign: campaign._id, influencer: req.user!.userId }).select("status").lean()
     : null;
-  const creatorProfile = req.user!.role === "INFLUENCER"
-    ? await ProfileModel.findOne({ user: req.user!.userId }).select("niches followerCount languages").lean()
-    : null;
   return res.json({ campaign: {
     ...campaignView(campaign, application?.status),
-    eligible: creatorProfile ? isEligible(campaign, creatorProfile) : false,
+    // Keep the previous client contract during the server-first rollout; every creator may apply.
+    eligible: req.user!.role === "INFLUENCER",
   } });
 });
 
-// CREATOR: mark interest after server-side eligibility and capacity checks.
+// CREATOR: any creator can mark interest while the campaign is open and has room.
 router.post("/:id/interest", requireRole("INFLUENCER"), async (req, res) => {
   if (!idSchema.safeParse(req.params.id).success) return res.status(400).json({ message: "Invalid campaign id" });
   const campaign = await CampaignModel.findOne({ _id: req.params.id, status: "OPEN", $or: [{ deadline: null }, { deadline: { $gt: new Date() } }] }).lean();
   if (!campaign) return res.status(404).json({ message: "This campaign is no longer open" });
-  const profile = await ProfileModel.findOne({ user: req.user!.userId }).lean();
-  if (!profile || !isEligible(campaign, profile)) return res.status(403).json({ message: "Your profile does not meet this campaign's niche, language or follower requirements" });
   if (campaign.filledSlots >= campaign.creatorSlots) return res.status(409).json({ message: "All creator spots are filled" });
   try {
     await CampaignApplicationModel.create({ campaign: campaign._id, influencer: req.user!.userId, status: "INTERESTED" });
