@@ -21,7 +21,6 @@ interface Campaign {
   deadline: string | null;
   status: string;
   applicationStatus: string | null;
-  eligible: boolean;
 }
 
 interface Applicant { id: string; name: string; niches: string[]; followerCount: number; languages: string[]; status: string; dealId: string | null; }
@@ -137,14 +136,14 @@ export default function CampaignDetail() {
           <div className="campaign-card-head"><div><h1>{campaign.title}</h1><p className="muted">{isBrand ? "Your campaign" : campaign.brandName}</p></div><span className="tag">{campaign.collaborationType.replaceAll("_", " + ")}</span></div>
           <p>{campaign.brief}</p>
           {campaign.collaborationType !== "PAID" && <p><strong>Creator receives:</strong> {campaign.barterDescription}</p>}
-          <div className="tags"><span className="tag">Niche: {campaign.niche}</span><span className="tag">{campaign.minFollowers.toLocaleString("en-IN")}+ self-declared followers</span></div>
-          <p><strong>Languages:</strong> {campaign.languages.length ? campaign.languages.join(", ") : "Any"}</p>
+          <p><strong>Brand preferences:</strong> {campaign.niche} creators and {campaign.minFollowers.toLocaleString("en-IN")}+ self-declared followers.</p>
+          <p><strong>Preferred languages:</strong> {campaign.languages.length ? `${campaign.languages.join(", ")} (any one is a plus)` : "Any"}</p>
+          {!isBrand && <p className="muted small">These are preferences, not restrictions. Any creator can express interest; the brand chooses whom to work with.</p>}
           <p><strong>Creator spots:</strong> {campaign.remainingSlots} remaining of {campaign.creatorSlots}</p>
           {campaign.deadline && <p><strong>Apply by:</strong> {new Date(campaign.deadline).toLocaleDateString("en-IN")}</p>}
           {campaign.status !== "OPEN" && <p className="muted">This campaign is closed.</p>}
           {!isBrand && campaign.applicationStatus && <p role="status">Your response: <strong>{campaign.applicationStatus.toLowerCase()}</strong></p>}
-          {!isBrand && !campaign.applicationStatus && campaign.eligible && campaign.status === "OPEN" && campaign.remainingSlots > 0 && <button className="btn btn-primary self-start" type="button" disabled={busy} onClick={() => void expressInterest()}>{busy ? "Saving..." : "I’m interested"}</button>}
-          {!isBrand && !campaign.eligible && !campaign.applicationStatus && <p className="muted">Your profile does not currently meet this campaign’s niche, language or follower requirements.</p>}
+          {!isBrand && !campaign.applicationStatus && campaign.status === "OPEN" && campaign.remainingSlots > 0 && <button className="btn btn-primary self-start" type="button" disabled={busy} onClick={() => void expressInterest()}>{busy ? "Saving..." : "I’m interested"}</button>}
           {isBrand && <p className="muted small">To share this campaign with a specific creator, open their conversation in Messages and use “Share a campaign”.</p>}
         </section>
 
@@ -161,7 +160,7 @@ export default function CampaignDetail() {
         </section>}
 
         {isBrand && campaign.status === "OPEN" && campaign.remainingSlots > 0 && <section className="card stack campaign-share-panel">
-          <div><h2>Share with creators</h2><p className="muted small">Select creators to send this campaign as a card in their Messages. They can express interest only if their profile meets the campaign requirements.</p></div>
+          <div><h2>Share with creators</h2><p className="muted small">Select creators to send this campaign as a card in their Messages. Any creator can express interest; you choose whom to work with.</p></div>
           <form className="row campaign-creator-search" onSubmit={(event) => void findCreators(event)}>
             <div className="field"><label htmlFor="creator-niche-search">Search creator niche</label><input id="creator-niche-search" value={creatorSearch} onChange={(event) => setCreatorSearch(event.target.value)} placeholder="e.g. food" /></div>
             <button className="btn btn-outline" type="submit">Find creators</button>

@@ -42,7 +42,7 @@ export default function Campaigns() {
         <div className="campaign-page-head">
           <div>
             <h1>{user?.role === "BRAND" ? "My campaigns" : "Campaigns for you"}</h1>
-            <p className="muted">{user?.role === "BRAND" ? "Find creators through open campaigns." : "Browse open campaigns that match your profile."}</p>
+            <p className="muted">{user?.role === "BRAND" ? "Find creators through open campaigns." : "Browse open campaigns. Brands choose from creators who express interest."}</p>
           </div>
           {user?.role === "BRAND" && <Link className="btn btn-primary" to="/campaigns/new">Post a campaign</Link>}
         </div>
@@ -51,8 +51,7 @@ export default function Campaigns() {
         {loading && <p className="muted">Loading campaigns...</p>}
         {!loading && campaigns.length === 0 && (
           <div className="card">
-            <p className="muted">{user?.role === "BRAND" ? "You haven't posted a campaign yet." : "No open campaigns match your profile yet."}</p>
-            {user?.role === "INFLUENCER" && <Link to="/influencer/profile">Update your creator profile</Link>}
+            <p className="muted">{user?.role === "BRAND" ? "You haven't posted a campaign yet." : "There are no open campaigns right now."}</p>
           </div>
         )}
         <div className="campaign-grid">
@@ -63,8 +62,8 @@ export default function Campaigns() {
                 <span className="tag">{campaign.collaborationType.replaceAll("_", " + ")}</span>
               </div>
               <p>{campaign.brief.length > 180 ? `${campaign.brief.slice(0, 180)}…` : campaign.brief}</p>
-              <div className="tags"><span className="tag">{campaign.niche}</span><span className="tag">{campaign.minFollowers.toLocaleString("en-IN")}+ followers</span></div>
-              <p className="muted small">{campaign.remainingSlots} of {campaign.creatorSlots} creator spots available{campaign.languages.length ? ` · ${campaign.languages.join(", ")}` : " · Any language"}</p>
+              <div className="tags"><span className="tag">Preferred niche: {campaign.niche}</span><span className="tag">Preferred followers: {campaign.minFollowers.toLocaleString("en-IN")}+</span></div>
+              <p className="muted small">{campaign.remainingSlots} of {campaign.creatorSlots} creator spots available{campaign.languages.length ? ` · Preferred languages: ${campaign.languages.join(", ")} (any one)` : " · Any language"}</p>
               {campaign.applicationStatus && <p className="muted small">Your response: {campaign.applicationStatus.toLowerCase()}</p>}
               <Link className="btn btn-outline btn-sm" to={`/campaigns/${campaign.id}`}>View campaign</Link>
             </article>
