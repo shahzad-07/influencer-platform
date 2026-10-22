@@ -45,6 +45,7 @@ export default function InfluencerDashboard() {
               <small>Only brands can see these</small>
             </Link>
           </li>
+          <ScheduleHomeSection isBrand={false} />
           <li>
             <Link to="/influencer/payment-details">
               Payment details
@@ -52,7 +53,6 @@ export default function InfluencerDashboard() {
             </Link>
           </li>
         </ul>
-        <ScheduleHomeSection isBrand={false} />
       </div>
     </AppLayout>
   );

@@ -1929,9 +1929,6 @@ textarea.input {
 .calendar-dot.go_live {
   background: #a66b00;
 }
-.calendar-dot.flexible {
-  background: #2d8a69;
-}
 :root[data-theme="dark"] .calendar-dot.go_live {
   background: var(--lime);
 }
@@ -1983,48 +1980,5 @@ textarea.input {
 }
 .flexible-window p {
   margin: 4px 0 0;
-  color: var(--muted);
-}
-.dashboard-schedule {
-  display: grid;
-  gap: 14px;
-}
-.dashboard-schedule h2,
-.dashboard-schedule p {
-  margin: 0;
-}
-.dashboard-schedule h2 {
-  font-size: 1.15rem;
-}
-.dashboard-schedule-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.dashboard-schedule-list {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.dashboard-schedule-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  min-width: 0;
-}
-.dashboard-schedule-list .calendar-dot {
-  margin-top: 6px;
-}
-.dashboard-schedule-list div {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.dashboard-schedule-list small {
-  display: block;
-  margin-top: 2px;
   color: var(--muted);
 }

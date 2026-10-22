@@ -43,7 +43,6 @@ export default function SiteHeader() {
               {isBrand ? "Find creators" : "Find brands"}
             </NavLink>
             <NavLink to="/deals">Deals</NavLink>
-            <NavLink to="/schedule">Schedule</NavLink>
             <NavLink to="/messages">
               Messages
               {chatUnread > 0 && (

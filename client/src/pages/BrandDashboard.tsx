@@ -33,6 +33,7 @@ export default function BrandDashboard() {
               <small>Chat with creators</small>
             </Link>
           </li>
+          <ScheduleHomeSection isBrand />
           <li>
             <Link to="/brand/profile">
               My brand profile
@@ -40,7 +41,6 @@ export default function BrandDashboard() {
             </Link>
           </li>
         </ul>
-        <ScheduleHomeSection isBrand />
       </div>
     </AppLayout>
   );
