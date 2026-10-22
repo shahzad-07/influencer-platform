@@ -97,8 +97,20 @@ async function main() {
   if (offer.status !== 201 || !dealId) throw new Error(`Could not create test deal (HTTP ${offer.status})`);
 
   check("unauthenticated schedule list is rejected", (await request("/deals/schedule")).status === 401);
+  const offeredList = await request("/deals/schedule", { token: brand.token });
+  check("an unaccepted offer is hidden from Schedule", offeredList.status === 200 && !offeredList.data.schedules.some((row) => row.dealId === dealId));
+  const beforeAccept = await request(`/deals/${dealId}/schedule`, {
+    method: "PUT",
+    token: brand.token,
+    body: { visitPlan: { mode: "FIXED", scheduledAt: "2026-11-12T18:30" }, goLiveDeadline: "" },
+  });
+  check("a visit cannot be scheduled before deal acceptance", beforeAccept.status === 409);
+  await mongoose.connection.db.collection("deals").updateOne(
+    { _id: new mongoose.Types.ObjectId(dealId) },
+    { $set: { status: "ACCEPTED" } },
+  );
   const initial = await request("/deals/schedule", { token: brand.token });
-  check("both deal participants see the deal schedule", initial.status === 200 && initial.data.schedules.some((row) => row.dealId === dealId));
+  check("both participants see the accepted deal on Schedule", initial.status === 200 && initial.data.schedules.some((row) => row.dealId === dealId));
 
   const outsiderUpdate = await request(`/deals/${dealId}/schedule`, {
     method: "PUT",
@@ -140,6 +152,20 @@ async function main() {
     body: { visitPlan: null, goLiveDeadline: "2026-02-30" },
   });
   check("impossible calendar dates are rejected", invalidDate.status === 400);
+
+  for (const status of ["DECLINED", "COMPLETED"]) {
+    await mongoose.connection.db.collection("deals").updateOne(
+      { _id: new mongoose.Types.ObjectId(dealId) },
+      { $set: { status } },
+    );
+    const list = await request("/deals/schedule", { token: brand.token });
+    const update = await request(`/deals/${dealId}/schedule`, {
+      method: "PUT",
+      token: brand.token,
+      body: { visitPlan: null, goLiveDeadline: "" },
+    });
+    check(`${status.toLowerCase()} deal is hidden and cannot be scheduled`, !list.data.schedules.some((row) => row.dealId === dealId) && update.status === 409);
+  }
 } finally {
   if (mongoose.connection.readyState === 1) {
     try {

@@ -167,6 +167,18 @@ const scheduleUpdateSchema = z.object({
   goLiveDeadline: z.union([z.literal(""), dateOnly]),
 });
 
+const SCHEDULABLE_STATUSES: DealStatus[] = [
+  "ACCEPTED",
+  "ADVANCE_SENT",
+  "IN_PROGRESS",
+  "DRAFT_SUBMITTED",
+  "CHANGES_REQUESTED",
+  "DRAFT_APPROVED",
+  "LINK_SUBMITTED",
+  "LINK_VERIFIED",
+  "FINAL_SENT",
+];
+
 // Deals made before collaboration types existed have no value, and they are paid
 const collabOf = (deal: { collaborationType?: string | null }) =>
   (deal.collaborationType ?? "PAID") as CollabType;
@@ -295,6 +307,7 @@ router.get("/schedule", async (req, res) => {
   const { userId, role } = req.user!;
   const deals = await DealModel.find({
     ...(role === "BRAND" ? { brand: userId } : { influencer: userId }),
+    status: { $in: SCHEDULABLE_STATUSES },
   })
     .sort({ "schedule.updatedAt": -1, updatedAt: -1 })
     .limit(100)
@@ -332,8 +345,13 @@ router.put("/:id/schedule", async (req, res) => {
   const deal = await DealModel.findOne({
     _id: req.params.id,
     $or: [{ brand: userId }, { influencer: userId }],
-  }).select("_id");
+  }).select("_id status");
   if (!deal) return res.status(404).json({ message: "Deal not found" });
+  if (!SCHEDULABLE_STATUSES.includes(deal.status as DealStatus)) {
+    return res.status(409).json({
+      message: "A schedule can be added after the deal is accepted and while it is active",
+    });
+  }
 
   const { visitPlan, goLiveDeadline } = parsed.data;
   const storedVisitPlan = visitPlan?.mode === "FIXED"
