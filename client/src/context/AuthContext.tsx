@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { api, setToken, clearToken, getToken } from "../lib/api";
 import { disconnectSocket } from "../lib/socket";
 
-export type Role = "BRAND" | "INFLUENCER";
+export type Role = "ADMIN" | "BRAND" | "INFLUENCER";
 
 export interface User {
   id: string;

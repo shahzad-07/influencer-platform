@@ -13,6 +13,7 @@ interface Brand {
   socialHandle: string;
   socialLinks: { platform: string; url: string }[];
   imageUrl: string;
+  trustSummary?: { pendingPayments: number; pendingDeliverables: number };
 }
 
 // Only turn http(s) URLs into clickable links
@@ -145,6 +146,12 @@ export default function BrandDetail() {
                 </a>
               ))}
             </div>
+          )}
+
+          {(brand.trustSummary?.pendingPayments ?? 0) > 0 && (
+            <p className="muted small">
+              Payments pending for {brand.trustSummary!.pendingPayments} {brand.trustSummary!.pendingPayments === 1 ? "creator" : "creators"}.
+            </p>
           )}
         </div>
       )}

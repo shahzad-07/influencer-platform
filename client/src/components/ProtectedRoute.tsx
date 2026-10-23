@@ -27,7 +27,16 @@ export default function ProtectedRoute({
   // Logged in, but wrong role: send them to their own dashboard
   if (!allowedRoles.includes(user.role)) {
     return (
-      <Navigate to={user.role === "BRAND" ? "/brand" : "/influencer"} replace />
+      <Navigate
+        to={
+          user.role === "ADMIN"
+            ? "/admin"
+            : user.role === "BRAND"
+              ? "/brand"
+              : "/influencer"
+        }
+        replace
+      />
     );
   }
 

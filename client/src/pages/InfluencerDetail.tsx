@@ -29,6 +29,7 @@ interface Influencer {
   socialHandle: string;
   imageUrl: string;
   portfolio?: PortfolioItem[]; // older profiles may not have it
+  trustSummary?: { pendingPayments: number; pendingDeliverables: number };
 }
 
 interface Price {
@@ -251,6 +252,12 @@ export default function InfluencerDetail() {
               )}
             </aside>
           </div>
+
+          {(influencer.trustSummary?.pendingDeliverables ?? 0) > 0 && (
+            <p className="muted small">
+              Deliverables pending for {influencer.trustSummary!.pendingDeliverables} {influencer.trustSummary!.pendingDeliverables === 1 ? "brand" : "brands"}.
+            </p>
+          )}
         </div>
       )}
     </AppLayout>

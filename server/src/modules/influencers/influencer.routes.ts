@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ProfileModel, LANGUAGES } from "../profiles/profile.model";
 import { authenticate, requireRole } from "../auth/auth.middleware";
 import { getProfileImageUrl } from "../profiles/profile-image-storage";
+import { getTrustSummaries } from "../deals/trust-summary";
 
 const router = Router();
 
@@ -79,6 +80,12 @@ router.get("/:id", authenticate, requireRole("BRAND"), async (req, res) => {
     return res.status(404).json({ message: "Influencer not found" });
   }
 
+  const userId = String(profile.user._id);
+  const trustSummary = (await getTrustSummaries([userId])).get(userId) ?? {
+    pendingPayments: 0,
+    pendingDeliverables: 0,
+  };
+
   res.json({
     influencer: {
       id: String(profile.user._id),
@@ -92,6 +99,7 @@ router.get("/:id", authenticate, requireRole("BRAND"), async (req, res) => {
       socialHandle: getSocialHandle(profile.socialLinks?.[0]?.platform, profile.socialLinks?.[0]?.url),
       imageUrl: getProfileImageUrl(profile.imagePath),
       portfolio: profile.portfolio ?? [],
+      trustSummary,
     },
   });
 });

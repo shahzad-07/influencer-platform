@@ -20,7 +20,13 @@ export default function Login() {
     setSubmitting(true);
     try {
       const user = await login(email, password);
-      navigate(user.role === "BRAND" ? "/brand" : "/influencer");
+      navigate(
+        user.role === "ADMIN"
+          ? "/admin"
+          : user.role === "BRAND"
+            ? "/brand"
+            : "/influencer",
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

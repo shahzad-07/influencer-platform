@@ -25,6 +25,7 @@ import Campaigns from "./pages/Campaigns";
 import CampaignNew from "./pages/CampaignNew";
 import CampaignDetail from "./pages/CampaignDetail";
 import Notifications from "./pages/Notifications";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
@@ -40,7 +41,16 @@ function Home() {
   if (loading) return <p className="page muted">Loading...</p>;
   if (!user) return <Landing />;
   return (
-    <Navigate to={user.role === "BRAND" ? "/brand" : "/influencer"} replace />
+    <Navigate
+      to={
+        user.role === "ADMIN"
+          ? "/admin"
+          : user.role === "BRAND"
+            ? "/brand"
+            : "/influencer"
+      }
+      replace
+    />
   );
 }
 
@@ -52,6 +62,14 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute role="ADMIN">
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
       {/* Public: anyone can read the terms, no login needed */}
       <Route path="/terms" element={<Terms />} />
       <Route

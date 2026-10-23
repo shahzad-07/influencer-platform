@@ -17,7 +17,7 @@ export const DEAL_STATUSES = [
 ] as const;
 
 export type DealStatus = (typeof DEAL_STATUSES)[number];
-export type Actor = "BRAND" | "INFLUENCER" | "SYSTEM";
+export type Actor = "ADMIN" | "BRAND" | "INFLUENCER" | "SYSTEM";
 
 export const DEAL_ACTIONS = [
   "accept",
@@ -37,6 +37,7 @@ export const DEAL_ACTIONS = [
   "confirmFinal",
   "rejectFinal",
   "dispute",
+  "resolveDispute",
 ] as const;
 
 export type DealAction = (typeof DEAL_ACTIONS)[number];
@@ -144,16 +145,21 @@ export const TRANSITIONS: Record<DealAction, Transition> = {
     to: "DISPUTED",
     noteRequired: true,
   },
+  // `nextStatus` restores the stored previous active status for this action.
+  resolveDispute: {
+    actors: ["ADMIN"],
+    from: ["DISPUTED"],
+    to: "IN_PROGRESS",
+    noteRequired: true,
+  },
 };
 
-// Statuses with no way out. DISPUTED is final for now; an admin
-// resolution step will be added before launch.
+// Statuses with no way out. DISPUTED can leave only through admin review.
 export const TERMINAL_STATUSES: DealStatus[] = [
   "COMPLETED",
   "DECLINED",
   "CANCELLED",
   "EXPIRED",
-  "DISPUTED",
 ];
 
 // The actions that move money. A barter-only deal never uses them.
@@ -177,9 +183,16 @@ export function nextStatus(
   action: DealAction,
   actor: Actor,
   terms: DealTerms = { paid: true },
+  restoreStatus?: DealStatus,
 ): DealStatus | null {
   const t = TRANSITIONS[action];
   if (!t || !t.actors.includes(actor) || !t.from.includes(current)) return null;
+
+  if (action === "resolveDispute") {
+    return restoreStatus && DISPUTABLE.includes(restoreStatus)
+      ? restoreStatus
+      : null;
+  }
 
   if (!terms.paid) {
     // Barter-only: no payment steps, work starts on acceptance, and the deal

@@ -13,6 +13,7 @@ import {
   isProfileImageType,
   PROFILE_IMAGE_MAX_BYTES,
 } from "../profiles/profile-image-storage";
+import { getTrustSummaries } from "../deals/trust-summary";
 
 const router = Router();
 
@@ -196,6 +197,12 @@ router.get(
       return res.status(404).json({ message: "Brand not found" });
     }
 
+    const userId = String(profile.user._id);
+    const trustSummary = (await getTrustSummaries([userId])).get(userId) ?? {
+      pendingPayments: 0,
+      pendingDeliverables: 0,
+    };
+
     res.json({
       brand: {
         id: String(profile.user._id),
@@ -207,6 +214,7 @@ router.get(
         socialHandle: getSocialHandle(profile.socialLinks?.[0]?.platform, profile.socialLinks?.[0]?.url),
         socialLinks: profile.socialLinks ?? [],
         imageUrl: getProfileImageUrl(profile.imagePath),
+        trustSummary,
       },
     });
   },

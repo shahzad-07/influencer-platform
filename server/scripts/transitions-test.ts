@@ -86,6 +86,18 @@ check(
   nextStatus("ACCEPTED", "dispute", "BRAND") === null,
 );
 check(
+  "Admin resolves a dispute back to its prior active stage",
+  nextStatus("DISPUTED", "resolveDispute", "ADMIN", { paid: true }, "LINK_VERIFIED") === "LINK_VERIFIED",
+);
+check(
+  "A participant cannot resolve an admin dispute review",
+  nextStatus("DISPUTED", "resolveDispute", "BRAND", { paid: true }, "IN_PROGRESS") === null,
+);
+check(
+  "Admin cannot restore a disputed deal to a terminal stage",
+  nextStatus("DISPUTED", "resolveDispute", "ADMIN", { paid: true }, "COMPLETED") === null,
+);
+check(
   "Completed deals cannot change",
   nextStatus("COMPLETED", "verifyLink", "BRAND") === null,
 );

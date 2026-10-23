@@ -36,6 +36,8 @@ import { CampaignModel } from "../campaigns/campaign.model";
 import { CampaignApplicationModel } from "../campaigns/campaign-application.model";
 import { BrandProfileModel } from "../brands/brand.model";
 import { isBrandProfileComplete } from "../brands/brand-profile-rules";
+import { DisputeModel } from "./dispute.model";
+import { DisputeAuditModel } from "./dispute-audit.model";
 
 const router = Router();
 
@@ -774,6 +776,37 @@ router.post("/:id/actions", async (req, res) => {
     }
   }
 
+  // Create the review record before freezing the deal. If the status changes
+  // concurrently, remove these provisional records below.
+  let openedDisputeId: mongoose.Types.ObjectId | null = null;
+  let openedAuditId: mongoose.Types.ObjectId | null = null;
+  if (action === "dispute") {
+    try {
+      const dispute = await DisputeModel.create({
+        deal: deal._id,
+        brand: deal.brand,
+        influencer: deal.influencer,
+        raisedBy: userId,
+        reason: note,
+        previousStatus: current,
+      });
+      openedDisputeId = dispute._id;
+      const audit = await DisputeAuditModel.create({
+        dispute: dispute._id,
+        deal: deal._id,
+        actor: userId,
+        action: "OPENED",
+        reason: note,
+        previousStatus: current,
+        nextStatus: "DISPUTED",
+      });
+      openedAuditId = audit._id;
+    } catch {
+      if (openedDisputeId) await DisputeModel.deleteOne({ _id: openedDisputeId });
+      return res.status(503).json({ message: "Could not open the dispute for review. Please retry." });
+    }
+  }
+
   // Compare-and-set: only applies if the status is still what we read
   const update: Record<string, unknown> = { $set: set, $push: push };
   const updated = await DealModel.findOneAndUpdate(
@@ -787,6 +820,8 @@ router.post("/:id/actions", async (req, res) => {
     },
   );
   if (!updated) {
+    if (openedAuditId) await DisputeAuditModel.deleteOne({ _id: openedAuditId });
+    if (openedDisputeId) await DisputeModel.deleteOne({ _id: openedDisputeId });
     if (savedDraftVersionId) {
       await DraftVersionModel.deleteOne({ _id: savedDraftVersionId });
     }
