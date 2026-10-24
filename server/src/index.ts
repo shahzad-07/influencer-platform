@@ -31,8 +31,11 @@ function checkSettings() {
 
   if (!process.env.MONGODB_URI) problems.push("MONGODB_URI is missing");
   if (!process.env.JWT_SECRET) problems.push("JWT_SECRET is missing");
-  if (!/^[0-9a-fA-F]{64}$/.test(process.env.PAYMENT_ENCRYPTION_KEY ?? "")) {
-    problems.push("PAYMENT_ENCRYPTION_KEY must be 64 hex characters");
+  const paymentEncryptionKey = process.env.PAYMENT_ENCRYPTION_KEY ?? "";
+  if (!/^[0-9a-fA-F]{64}$/.test(paymentEncryptionKey)) {
+    problems.push(
+      `PAYMENT_ENCRYPTION_KEY must be 64 hex characters; found ${paymentEncryptionKey.length} characters`,
+    );
   }
 
   const clientUrl = process.env.CLIENT_URL;
