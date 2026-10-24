@@ -6,6 +6,7 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Terms from "./pages/Terms";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import BrandDashboard from "./pages/BrandDashboard";
 import InfluencerDashboard from "./pages/InfluencerDashboard";
 import InfluencerProfile from "./pages/InfluencerProfile";
@@ -72,6 +73,7 @@ export default function App() {
       />
       {/* Public: anyone can read the terms, no login needed */}
       <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route
         path="/brand"
         element={

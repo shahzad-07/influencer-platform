@@ -17,6 +17,9 @@ export default function SiteFooter() {
             <li>
               <Link to="/terms">Terms</Link>
             </li>
+            <li>
+              <Link to="/privacy">Privacy</Link>
+            </li>
           </ul>
         </div>
         <div className="footer-base">© 2026 DealDoneHai · Bengaluru, India</div>
