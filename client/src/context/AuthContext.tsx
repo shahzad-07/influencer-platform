@@ -43,6 +43,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    function handleInactiveAccount() {
+      disconnectSocket();
+      clearToken();
+      setUser(null);
+    }
+    window.addEventListener("auth:inactive", handleInactiveAccount);
+    return () => window.removeEventListener("auth:inactive", handleInactiveAccount);
+  }, []);
+
   // On first load: if a token exists, ask the server who we are
   useEffect(() => {
     if (!getToken()) {

@@ -56,6 +56,12 @@ router.post("/login", async (req, res) => {
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     return res.status(401).json({ message: "Invalid email or password" });
   }
+  if (user.accountStatus !== "ACTIVE") {
+    return res.status(403).json({
+      code: "ACCOUNT_INACTIVE",
+      message: "This account is suspended or removed. Contact support if you believe this is a mistake.",
+    });
+  }
 
   res.json({
     token: signToken(user.id, user.role),

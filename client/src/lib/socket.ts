@@ -15,6 +15,10 @@ export function getSocket(): Socket {
       // A function, so every (re)connect attempt sends the current token
       auth: (cb) => cb({ token: getToken() }),
     });
+    socket.on("auth:inactive", () => {
+      window.dispatchEvent(new Event("auth:inactive"));
+      disconnectSocket();
+    });
   }
   return socket;
 }

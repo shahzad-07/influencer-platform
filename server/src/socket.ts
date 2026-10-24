@@ -3,6 +3,7 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { ConversationModel } from "./modules/chat/conversation.model";
+import { UserModel } from "./modules/users/user.model";
 import type { AuthPayload } from "./modules/auth/auth.middleware";
 
 type Ack = (res: { ok: boolean; error?: string }) => void;
@@ -18,19 +19,27 @@ export function initSocket(httpServer: HttpServer) {
   });
 
   // Runs once per connection: reject anyone without a valid token
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
     if (typeof token !== "string") {
       return next(new Error("Not authenticated"));
     }
     try {
-      socket.data.user = jwt.verify(
+      const payload = jwt.verify(
         token,
         process.env.JWT_SECRET as string,
-      ) as AuthPayload;
+      );
+      if (typeof payload === "string" || typeof payload.userId !== "string") {
+        return next(new Error("Invalid or expired token"));
+      }
+      const user = await UserModel.findById(payload.userId).select("role accountStatus");
+      if (!user || user.accountStatus !== "ACTIVE") {
+        return next(new Error("Account is not active"));
+      }
+      socket.data.user = { userId: user.id, role: user.role } as AuthPayload;
       next();
     } catch {
-      next(new Error("Invalid or expired token"));
+      next(new Error("Could not verify account status"));
     }
   });
 
@@ -93,4 +102,13 @@ export function emitNotification(userId: string, notification: unknown) {
 // Tell a user's active app sessions to refresh their chat unread total.
 export function emitChatChanged(userId: string) {
   io?.to(userRoomName(userId)).emit("chat:changed");
+}
+
+export async function disconnectUser(userId: string) {
+  if (!io) return;
+  const sockets = await io.in(userRoomName(userId)).fetchSockets();
+  for (const socket of sockets) {
+    socket.emit("auth:inactive");
+    socket.disconnect(true);
+  }
 }

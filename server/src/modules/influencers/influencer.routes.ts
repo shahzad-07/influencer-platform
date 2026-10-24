@@ -5,6 +5,7 @@ import { ProfileModel, LANGUAGES } from "../profiles/profile.model";
 import { authenticate, requireRole } from "../auth/auth.middleware";
 import { getProfileImageUrl } from "../profiles/profile-image-storage";
 import { getTrustSummaries } from "../deals/trust-summary";
+import { UserModel } from "../users/user.model";
 
 const router = Router();
 
@@ -32,6 +33,12 @@ router.get("/", authenticate, requireRole("BRAND"), async (req, res) => {
   if (location) filter.location = new RegExp(escapeRegex(location), "i");
   // Matches any profile whose languages list contains this one
   if (language) filter.languages = language;
+  filter.user = {
+    $in: await UserModel.find({
+      role: "INFLUENCER",
+      accountStatus: { $in: ["ACTIVE", null] },
+    }).distinct("_id"),
+  };
 
   const [profiles, total] = await Promise.all([
     ProfileModel.find(filter)
@@ -69,6 +76,13 @@ router.get("/:id", authenticate, requireRole("BRAND"), async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
     return res.status(400).json({ message: "Invalid influencer id" });
   }
+
+  const activeCreator = await UserModel.exists({
+    _id: req.params.id,
+    role: "INFLUENCER",
+    accountStatus: { $in: ["ACTIVE", null] },
+  });
+  if (!activeCreator) return res.status(404).json({ message: "Influencer not found" });
 
   const profile = await ProfileModel.findOne({ user: req.params.id })
     .populate<{

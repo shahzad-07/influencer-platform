@@ -74,8 +74,12 @@ router.get("/", async (req, res) => {
   }
 
   const campaigns = await CampaignModel.find({ status: "OPEN", $or: [{ deadline: null }, { deadline: { $gt: new Date() } }] })
-    .sort({ createdAt: -1 }).limit(200).populate("brand", "name").lean();
-  const available = campaigns.filter((item) => item.filledSlots < item.creatorSlots);
+    .sort({ createdAt: -1 }).limit(200).populate({
+      path: "brand",
+      select: "name",
+      match: { accountStatus: { $in: ["ACTIVE", null] } },
+    }).lean();
+  const available = campaigns.filter((item) => item.brand && item.filledSlots < item.creatorSlots);
   const applications = await CampaignApplicationModel.find({ campaign: { $in: available.map((item) => item._id) }, influencer: req.user!.userId }).select("campaign status").lean();
   const statusByCampaign = new Map(applications.map((item) => [String(item.campaign), item.status]));
   return res.json({ campaigns: available.map((item) => campaignView(item, statusByCampaign.get(String(item._id)))) });
@@ -87,7 +91,12 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
   if (!parsed.success) return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
   const campaign = await CampaignModel.create({ ...parsed.data, brand: req.user!.userId });
 
-  const profiles = await ProfileModel.find({}).select("user niches followerCount languages").limit(5000).lean();
+  const activeCreatorIds = await UserModel.find({
+    role: "INFLUENCER",
+    accountStatus: { $in: ["ACTIVE", null] },
+  }).distinct("_id");
+  const profiles = await ProfileModel.find({ user: { $in: activeCreatorIds } })
+    .select("user niches followerCount languages").limit(5000).lean();
   const matches = profiles.filter((profile) => matchesCampaignNotificationPreferences(campaign, profile)).slice(0, 500);
   const recipientIds = matches.map((profile) => String(profile.user));
   if (recipientIds.length) {
@@ -112,8 +121,12 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
 // BOTH roles: view one campaign. A creator may open a directly shared card even if it is not a match.
 router.get("/:id", async (req, res) => {
   if (!idSchema.safeParse(req.params.id).success) return res.status(400).json({ message: "Invalid campaign id" });
-  const campaign = await CampaignModel.findById(req.params.id).populate("brand", "name").lean();
-  if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+  const campaign = await CampaignModel.findById(req.params.id).populate({
+    path: "brand",
+    select: "name",
+    match: { accountStatus: { $in: ["ACTIVE", null] } },
+  }).lean();
+  if (!campaign || !campaign.brand) return res.status(404).json({ message: "Campaign not found" });
   if (req.user!.role === "BRAND" && String(campaign.brand?._id ?? campaign.brand) !== req.user!.userId) {
     return res.status(404).json({ message: "Campaign not found" });
   }
@@ -166,7 +179,11 @@ router.post("/:id/share", requireRole("BRAND"), async (req, res) => {
   })
     .select("title brief niche collaborationType").lean();
   if (!campaign) return res.status(404).json({ message: "Open campaign not found" });
-  const creators = await UserModel.find({ _id: { $in: parsed.data.creatorIds }, role: "INFLUENCER" }).select("_id").lean();
+  const creators = await UserModel.find({
+    _id: { $in: parsed.data.creatorIds },
+    role: "INFLUENCER",
+    accountStatus: { $in: ["ACTIVE", null] },
+  }).select("_id").lean();
   if (creators.length !== parsed.data.creatorIds.length) return res.status(400).json({ message: "One or more selected creators could not be found" });
 
   const sharedWith: string[] = [];
@@ -209,9 +226,18 @@ router.get("/:id/applicants", requireRole("BRAND"), async (req, res) => {
   const applications = await CampaignApplicationModel.find({ campaign: campaign._id }).sort({ createdAt: -1 })
     .populate<{ influencer: { _id: mongoose.Types.ObjectId; name: string } }>("influencer", "name")
     .populate<{ deal: { _id: mongoose.Types.ObjectId } | null }>("deal", "_id").lean();
-  const profiles = await ProfileModel.find({ user: { $in: applications.map((item) => item.influencer?._id).filter(Boolean) } }).select("user niches followerCount languages").lean();
+  const activeCreatorIds = await UserModel.find({
+    _id: { $in: applications.map((item) => item.influencer?._id).filter(Boolean) },
+    role: "INFLUENCER",
+    accountStatus: { $in: ["ACTIVE", null] },
+  }).distinct("_id");
+  const activeCreatorSet = new Set(activeCreatorIds.map(String));
+  const activeApplications = applications.filter((item) =>
+    item.influencer && activeCreatorSet.has(String(item.influencer._id)),
+  );
+  const profiles = await ProfileModel.find({ user: { $in: activeCreatorIds } }).select("user niches followerCount languages").lean();
   const profileByUser = new Map(profiles.map((profile) => [String(profile.user), profile]));
-  return res.json({ applicants: applications.filter((item) => item.influencer).map((item) => {
+  return res.json({ applicants: activeApplications.map((item) => {
     const profile = profileByUser.get(String(item.influencer._id));
     return {
       id: String(item.influencer._id), name: item.influencer.name,

@@ -62,6 +62,7 @@ router.post("/conversations", async (req, res) => {
   const targetExists = await UserModel.exists({
     _id: targetId,
     role: targetRole,
+    accountStatus: { $in: ["ACTIVE", null] },
   });
   if (!targetExists) {
     return res.status(404).json({
@@ -223,6 +224,18 @@ router.post("/conversations/:id/messages", async (req, res) => {
     return res.status(404).json({ message: "Conversation not found" });
   }
 
+  const recipientId =
+    req.user!.role === "BRAND"
+      ? String(conversation.influencer)
+      : String(conversation.brand);
+  const activeRecipient = await UserModel.exists({
+    _id: recipientId,
+    accountStatus: { $in: ["ACTIVE", null] },
+  });
+  if (!activeRecipient) {
+    return res.status(409).json({ message: "This account is not active. Messages cannot be sent." });
+  }
+
   let campaign: { _id: mongoose.Types.ObjectId; title: string; brief: string; niche: string; collaborationType: string } | null = null;
   if (parsed.data.campaignId) {
     if (req.user!.role !== "BRAND") return res.status(403).json({ message: "Only the campaign's brand can share it" });
@@ -263,10 +276,6 @@ router.post("/conversations/:id/messages", async (req, res) => {
 
   // Push to everyone currently in this conversation's room
   emitNewMessage(String(conversation._id), payload);
-  const recipientId =
-    req.user!.role === "BRAND"
-      ? String(conversation.influencer)
-      : String(conversation.brand);
   emitChatChanged(recipientId);
 
   res.status(201).json({ message: payload });

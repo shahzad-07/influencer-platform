@@ -14,6 +14,7 @@ import {
   PROFILE_IMAGE_MAX_BYTES,
 } from "../profiles/profile-image-storage";
 import { getTrustSummaries } from "../deals/trust-summary";
+import { UserModel } from "../users/user.model";
 
 const router = Router();
 
@@ -153,6 +154,12 @@ router.get("/", authenticate, requireRole("INFLUENCER"), async (req, res) => {
   const filter: Record<string, unknown> = {};
   if (industry) filter.industry = new RegExp(`^${escapeRegex(industry)}$`, "i");
   if (location) filter.location = new RegExp(escapeRegex(location), "i");
+  filter.user = {
+    $in: await UserModel.find({
+      role: "BRAND",
+      accountStatus: { $in: ["ACTIVE", null] },
+    }).distinct("_id"),
+  };
 
   const [profiles, total] = await Promise.all([
     BrandProfileModel.find(filter)
@@ -188,6 +195,13 @@ router.get(
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({ message: "Invalid brand id" });
     }
+
+    const activeBrand = await UserModel.exists({
+      _id: req.params.id,
+      role: "BRAND",
+      accountStatus: { $in: ["ACTIVE", null] },
+    });
+    if (!activeBrand) return res.status(404).json({ message: "Brand not found" });
 
     const profile = await BrandProfileModel.findOne({ user: req.params.id })
       .populate<{ user: PopulatedUser }>("user", "name")

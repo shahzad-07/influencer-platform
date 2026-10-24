@@ -7,11 +7,27 @@ import { nextStatus } from "../deals/deal.transitions";
 import type { DealStatus } from "../deals/deal.transitions";
 import { DisputeAuditModel } from "../deals/dispute-audit.model";
 import { DisputeModel, TRUST_MARKS } from "../deals/dispute.model";
+import { AccountAuditModel } from "./account-audit.model";
+import { ACCOUNT_STATUSES, UserModel } from "../users/user.model";
+import type { AccountStatus } from "../users/user.model";
 import { NotificationModel } from "../notifications/notification.model";
-import { emitNotification } from "../../socket";
+import { disconnectUser, emitNotification } from "../../socket";
 
 const router = Router();
 router.use(authenticate, requireRole("ADMIN"));
+
+const accountListSchema = z.object({
+  role: z.enum(["BRAND", "INFLUENCER"]).optional(),
+  status: z.enum(ACCOUNT_STATUSES).optional(),
+  search: z.string().trim().max(100).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+const accountStatusSchema = z.object({
+  action: z.enum(["SUSPEND", "REMOVE", "RESTORE"]),
+  reason: z.string().trim().min(10).max(1000),
+});
 
 const listSchema = z.object({
   state: z.enum(["OPEN", "RESOLVED"]).default("OPEN"),
@@ -28,6 +44,142 @@ const trustMarkSchema = z.object({
 });
 
 class ReviewConflict extends Error {}
+class AccountConflict extends Error {}
+
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// ADMIN: list brand and creator accounts without exposing password hashes.
+router.get("/accounts", async (req, res) => {
+  const parsed = accountListSchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
+  }
+
+  const clauses: Record<string, unknown>[] = [
+    { role: parsed.data.role ?? { $in: ["BRAND", "INFLUENCER"] } },
+  ];
+  if (parsed.data.status === "ACTIVE") {
+    clauses.push({ $or: [{ accountStatus: "ACTIVE" }, { accountStatus: { $exists: false } }] });
+  } else if (parsed.data.status) {
+    clauses.push({ accountStatus: parsed.data.status });
+  }
+  if (parsed.data.search) {
+    const pattern = new RegExp(escapeRegex(parsed.data.search), "i");
+    clauses.push({ $or: [{ name: pattern }, { email: pattern }] });
+  }
+  const filter = { $and: clauses };
+  const skip = (parsed.data.page - 1) * parsed.data.limit;
+  const [accounts, total] = await Promise.all([
+    UserModel.find(filter)
+      .select("name email role accountStatus createdAt updatedAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parsed.data.limit)
+      .lean(),
+    UserModel.countDocuments(filter),
+  ]);
+
+  res.json({ accounts, total, page: parsed.data.page, limit: parsed.data.limit });
+});
+
+router.get("/accounts/:id/audit", async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(404).json({ message: "Account not found" });
+  }
+  const account = await UserModel.exists({
+    _id: req.params.id,
+    role: { $in: ["BRAND", "INFLUENCER"] },
+  });
+  if (!account) return res.status(404).json({ message: "Account not found" });
+
+  const events = await AccountAuditModel.find({ targetUser: req.params.id })
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .populate("actor", "name email")
+    .lean();
+  res.json({ events });
+});
+
+router.patch("/accounts/:id/status", async (req, res) => {
+  const parsed = accountStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
+  }
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(404).json({ message: "Account not found" });
+  }
+
+  const nextStatus: AccountStatus = parsed.data.action === "RESTORE"
+    ? "ACTIVE"
+    : parsed.data.action === "SUSPEND"
+      ? "SUSPENDED"
+      : "REMOVED";
+  const session = await mongoose.startSession();
+  let accountName = "";
+  let accountEmail = "";
+  let currentStatus: AccountStatus | null = null;
+  try {
+    await session.withTransaction(async () => {
+      const account = await UserModel.findOne({
+        _id: req.params.id,
+        role: { $in: ["BRAND", "INFLUENCER"] },
+      }).session(session);
+      if (!account) throw new AccountConflict("Account not found");
+
+      const previousStatus = (account.accountStatus ?? "ACTIVE") as AccountStatus;
+      if (previousStatus === nextStatus) {
+        throw new AccountConflict(`Account is already ${nextStatus.toLowerCase()}`);
+      }
+      if (previousStatus === "REMOVED" && parsed.data.action !== "RESTORE") {
+        throw new AccountConflict("Restore a removed account before changing its status");
+      }
+
+      account.accountStatus = nextStatus;
+      await account.save({ session });
+      await AccountAuditModel.create(
+        [
+          {
+            targetUser: account._id,
+            actor: req.user!.userId,
+            action: parsed.data.action,
+            reason: parsed.data.reason,
+            previousStatus,
+            nextStatus,
+          },
+        ],
+        { session },
+      );
+      accountName = account.name;
+      accountEmail = account.email;
+      currentStatus = nextStatus;
+    });
+  } catch (error) {
+    if (error instanceof AccountConflict) {
+      const statusCode = error.message === "Account not found" ? 404 : 409;
+      return res.status(statusCode).json({ message: error.message });
+    }
+    return res.status(503).json({ message: "Could not update the account. Please retry." });
+  } finally {
+    await session.endSession();
+  }
+
+  if (currentStatus !== "ACTIVE") {
+    try {
+      await disconnectUser(req.params.id);
+    } catch {
+      console.error("Could not disconnect the inactive account's sockets");
+    }
+  }
+  res.json({
+    ok: true,
+    account: {
+      id: req.params.id,
+      name: accountName,
+      email: accountEmail,
+      accountStatus: currentStatus,
+    },
+  });
+});
 
 interface TrustMarkNotificationDetails {
   dealId: string;

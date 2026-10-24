@@ -229,6 +229,15 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
   }
   const paid = isPaid(collaborationType);
 
+  const isInfluencer = await UserModel.exists({
+    _id: influencerId,
+    role: "INFLUENCER",
+    accountStatus: { $in: ["ACTIVE", null] },
+  });
+  if (!isInfluencer) {
+    return res.status(404).json({ message: "Influencer not found" });
+  }
+
   let campaignApplicationReserved = false;
   if (campaignId) {
     const campaign = await CampaignModel.findOne({
@@ -247,14 +256,6 @@ router.post("/", requireRole("BRAND"), async (req, res) => {
     );
     if (!application) return res.status(409).json({ message: "The creator is not an active interested applicant" });
     campaignApplicationReserved = true;
-  }
-
-  const isInfluencer = await UserModel.exists({
-    _id: influencerId,
-    role: "INFLUENCER",
-  });
-  if (!isInfluencer) {
-    return res.status(404).json({ message: "Influencer not found" });
   }
 
   // Link the deal to their chat, if they already have one

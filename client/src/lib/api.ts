@@ -30,6 +30,10 @@ export async function api<T>(
 
   const data = await res.json().catch(() => ({}));
 
+  if (data.code === "ACCOUNT_INACTIVE") {
+    window.dispatchEvent(new Event("auth:inactive"));
+  }
+
   if (!res.ok) {
     // Server sends either { message } or { errors: { field: [msgs] } }
     const fieldErrors = data.errors
