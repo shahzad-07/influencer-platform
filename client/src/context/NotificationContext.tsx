@@ -20,7 +20,7 @@ interface NotificationListResponse {
 }
 
 interface NewNotificationEvent extends NotificationItem {
-  actorRole: "BRAND" | "INFLUENCER";
+  actorRole: "ADMIN" | "BRAND" | "INFLUENCER";
 }
 
 interface NotificationContextValue {

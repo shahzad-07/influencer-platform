@@ -6,6 +6,7 @@ export const NOTIFICATION_ACTIONS = [
   "createOffer",
   "campaignNew",
   "campaignInterest",
+  "adminTrustMarkUpdated",
 ] as const;
 
 const notificationSchema = new Schema(

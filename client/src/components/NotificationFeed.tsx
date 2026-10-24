@@ -14,6 +14,7 @@ const actionText: Record<string, string> = {
   confirmFinal: "confirmed the final payment", rejectFinal: "reported a final payment issue",
   dispute: "raised a dispute", campaignNew: "posted a campaign that may fit your profile",
   campaignInterest: "is interested in your campaign",
+  adminTrustMarkUpdated: "had its trust status updated by an admin",
 };
 
 export default function NotificationFeed({ onNavigate }: { onNavigate?: () => void }) {

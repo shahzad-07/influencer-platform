@@ -7,6 +7,8 @@ import { nextStatus } from "../deals/deal.transitions";
 import type { DealStatus } from "../deals/deal.transitions";
 import { DisputeAuditModel } from "../deals/dispute-audit.model";
 import { DisputeModel, TRUST_MARKS } from "../deals/dispute.model";
+import { NotificationModel } from "../notifications/notification.model";
+import { emitNotification } from "../../socket";
 
 const router = Router();
 router.use(authenticate, requireRole("ADMIN"));
@@ -26,6 +28,42 @@ const trustMarkSchema = z.object({
 });
 
 class ReviewConflict extends Error {}
+
+interface TrustMarkNotificationDetails {
+  dealId: string;
+  dealTitle: string;
+  brandId: string;
+  influencerId: string;
+}
+
+// Notifications are best-effort after the audited trust-mark update commits.
+// Both deal participants receive the update; public profiles expose counts only.
+async function notifyTrustMarkParticipants(
+  details: TrustMarkNotificationDetails,
+  adminId: string,
+) {
+  for (const recipient of [details.brandId, details.influencerId]) {
+    try {
+      const notification = await NotificationModel.create({
+        recipient,
+        deal: details.dealId,
+        actor: adminId,
+        action: "adminTrustMarkUpdated",
+      });
+      emitNotification(recipient, {
+        id: String(notification._id),
+        dealId: details.dealId,
+        dealTitle: details.dealTitle,
+        action: "adminTrustMarkUpdated",
+        actorRole: "ADMIN",
+        createdAt: notification.createdAt,
+        readAt: null,
+      });
+    } catch {
+      console.error("Could not save or deliver admin trust mark notification");
+    }
+  }
+}
 
 // ADMIN: review current or resolved disputes. Names and deal details are
 // restricted to this route; public profile summaries expose counts only.
@@ -74,6 +112,7 @@ router.post("/disputes/:id/resolve", async (req, res) => {
 
   const session = await mongoose.startSession();
   let restoredStatus: DealStatus | null = null;
+  let notificationDetails: TrustMarkNotificationDetails | null = null;
   try {
     await session.withTransaction(async () => {
       const dispute = await DisputeModel.findOne({
@@ -143,6 +182,14 @@ router.post("/disputes/:id/resolve", async (req, res) => {
         { session },
       );
       restoredStatus = nextDealStatus;
+      if (parsed.data.trustMark !== "NONE") {
+        notificationDetails = {
+          dealId: String(deal._id),
+          dealTitle: deal.title,
+          brandId: String(dispute.brand),
+          influencerId: String(dispute.influencer),
+        };
+      }
     });
   } catch (error) {
     if (error instanceof ReviewConflict) {
@@ -155,6 +202,9 @@ router.post("/disputes/:id/resolve", async (req, res) => {
 
   if (!restoredStatus) {
     return res.status(409).json({ message: "Dispute review did not complete" });
+  }
+  if (notificationDetails) {
+    await notifyTrustMarkParticipants(notificationDetails, req.user!.userId);
   }
   res.json({ ok: true, restoredStatus, trustMark: parsed.data.trustMark });
 });
@@ -171,6 +221,7 @@ router.patch("/disputes/:id/trust-mark", async (req, res) => {
   }
 
   const session = await mongoose.startSession();
+  let notificationDetails: TrustMarkNotificationDetails | null = null;
   try {
     await session.withTransaction(async () => {
       const dispute = await DisputeModel.findOne({
@@ -182,6 +233,19 @@ router.patch("/disputes/:id/trust-mark", async (req, res) => {
       const previousMark = dispute.trustMark;
       const nextMark = parsed.data.trustMark;
       const now = new Date();
+      if (previousMark !== nextMark) {
+        const deal = await DealModel.findById(dispute.deal)
+          .select("title")
+          .session(session);
+        if (deal) {
+          notificationDetails = {
+            dealId: String(deal._id),
+            dealTitle: deal.title,
+            brandId: String(dispute.brand),
+            influencerId: String(dispute.influencer),
+          };
+        }
+      }
       dispute.trustMark = nextMark;
       dispute.trustMarkActive = nextMark !== "NONE";
       dispute.trustMarkReason = nextMark === "NONE" ? "" : parsed.data.reason;
@@ -212,6 +276,9 @@ router.patch("/disputes/:id/trust-mark", async (req, res) => {
     await session.endSession();
   }
 
+  if (notificationDetails) {
+    await notifyTrustMarkParticipants(notificationDetails, req.user!.userId);
+  }
   res.json({ ok: true, trustMark: parsed.data.trustMark });
 });
 
