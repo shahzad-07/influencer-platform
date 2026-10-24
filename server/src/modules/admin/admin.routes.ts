@@ -65,6 +65,48 @@ async function notifyTrustMarkParticipants(
   }
 }
 
+async function clearOtherActiveTrustMarks(
+  dealId: mongoose.Types.ObjectId,
+  currentDisputeId: mongoose.Types.ObjectId,
+  adminId: string,
+  reason: string,
+  session: mongoose.ClientSession,
+) {
+  const activeDisputes = await DisputeModel.find({
+    deal: dealId,
+    state: "RESOLVED",
+    trustMarkActive: true,
+    _id: { $ne: currentDisputeId },
+  }).session(session);
+
+  for (const activeDispute of activeDisputes) {
+    const previousMark = activeDispute.trustMark;
+    activeDispute.trustMark = "NONE";
+    activeDispute.trustMarkActive = false;
+    activeDispute.trustMarkReason = "";
+    activeDispute.trustMarkUpdatedBy = new mongoose.Types.ObjectId(adminId);
+    activeDispute.trustMarkUpdatedAt = new Date();
+    await activeDispute.save({ session });
+
+    await DisputeAuditModel.create(
+      [
+        {
+          dispute: activeDispute._id,
+          deal: dealId,
+          actor: adminId,
+          action: "TRUST_MARK_CHANGED",
+          reason: `Cleared because another dispute review changed the deal's active trust mark: ${reason}`.slice(0, 1000),
+          previousMark,
+          nextMark: "NONE",
+        },
+      ],
+      { session },
+    );
+  }
+
+  return activeDisputes.length;
+}
+
 // ADMIN: review current or resolved disputes. Names and deal details are
 // restricted to this route; public profile summaries expose counts only.
 router.get("/disputes", async (req, res) => {
@@ -137,6 +179,14 @@ router.post("/disputes/:id/resolve", async (req, res) => {
       if (!nextDealStatus) throw new ReviewConflict("The previous deal stage cannot be restored");
 
       const now = new Date();
+      const clearedOtherMarks = await clearOtherActiveTrustMarks(
+        deal._id,
+        dispute._id,
+        req.user!.userId,
+        parsed.data.reason,
+        session,
+      );
+
       const updatedDeal = await DealModel.findOneAndUpdate(
         { _id: deal._id, status: "DISPUTED" },
         {
@@ -182,7 +232,7 @@ router.post("/disputes/:id/resolve", async (req, res) => {
         { session },
       );
       restoredStatus = nextDealStatus;
-      if (parsed.data.trustMark !== "NONE") {
+      if (parsed.data.trustMark !== "NONE" || clearedOtherMarks > 0) {
         notificationDetails = {
           dealId: String(deal._id),
           dealTitle: deal.title,
@@ -233,7 +283,14 @@ router.patch("/disputes/:id/trust-mark", async (req, res) => {
       const previousMark = dispute.trustMark;
       const nextMark = parsed.data.trustMark;
       const now = new Date();
-      if (previousMark !== nextMark) {
+      const clearedOtherMarks = await clearOtherActiveTrustMarks(
+        dispute.deal,
+        dispute._id,
+        req.user!.userId,
+        parsed.data.reason,
+        session,
+      );
+      if (previousMark !== nextMark || clearedOtherMarks > 0) {
         const deal = await DealModel.findById(dispute.deal)
           .select("title")
           .session(session);
